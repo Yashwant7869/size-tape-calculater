@@ -78,9 +78,9 @@ const GLOBAL_CSS = `
   .st-pill{display:inline-flex;align-items:center;gap:7px;padding:7px 11px;border:1px solid rgba(122,139,111,.2);border-radius:20px;background:#eef3ea;color:#55654c;font-size:11.5px;font-weight:600;}
   .st-pill.status{border-color:var(--line);background:rgba(255,255,255,.72);color:#707887;font-weight:500;}
   .st-pill-icon{width:18px;height:18px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:#dce8d5;font-size:11px;font-weight:800;}
-  .st-dot{width:7px;height:7px;border-radius:50%;background:#c9c2ac;flex-shrink:0;}
-  .st-dot.ready{background:var(--sage);}
-  .st-dot.busy{background:var(--brass);animation:st-pulse 1s infinite;}
+  .st-line{width:7px;height:7px;border-radius:50%;background:#c9c2ac;flex-shrink:0;}
+  .st-line.ready{background:var(--sage);}
+  .st-line.busy{background:var(--brass);animation:st-pulse 1s infinite;}
   .st-quick-flow{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;margin-top:24px;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--line);position:relative;z-index:1;}
   .st-flow-item{display:flex;align-items:center;gap:10px;padding:12px 14px;background:rgba(255,255,255,.82);}
   .st-flow-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex:0 0 auto;background:var(--chalk);color:var(--ink);font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;}
@@ -1097,11 +1097,11 @@ export default function SizeTapeCalculator() {
               Your photos stay private on this device
             </span>
             <span className="st-pill status" aria-live="polite">
-              <span className={`st-dot ${poseWorker.ready ? "ready" : poseWorker.status.includes("Preparing") ? "busy" : ""}`} />
+              <span className={`st-line ${poseWorker.ready ? "ready" : poseWorker.status.includes("Preparing") ? "busy" : ""}`} />
               {poseWorker.status}
             </span>
             <span className="st-pill status" aria-live="polite">
-              <span className={`st-dot ${seg.ready ? "ready" : seg.status.includes("Preparing") ? "busy" : ""}`} />
+              <span className={`st-line ${seg.ready ? "ready" : seg.status.includes("Preparing") ? "busy" : ""}`} />
               {seg.status}
             </span>
           </div>
@@ -1459,7 +1459,7 @@ export default function SizeTapeCalculator() {
                       onPointerUp={() => { handlePointerUp(); handleCardPointerUp(); }}
                     >
                       <line x1={0} y1={ty} x2={sw} y2={ty} stroke="#1B2A4A" strokeWidth={2} strokeDasharray="6,4" />
-                      <circle
+                      <line
                         className="st-handle" cx={sw / 2} cy={ty} r={10}
                         fill="#1B2A4A" stroke="#fff" strokeWidth={2}
                         onPointerDown={e => handlePointerDown(e, "T")}
@@ -1467,7 +1467,7 @@ export default function SizeTapeCalculator() {
                       <text x={sw / 2 + 16} y={ty + 4} fontSize={10} fill="#1B2A4A" fontFamily="IBM Plex Mono">head</text>
 
                       <line x1={0} y1={by} x2={sw} y2={by} stroke="#1B2A4A" strokeWidth={2} strokeDasharray="6,4" />
-                      <circle
+                      <line
                         className="st-handle" cx={sw / 2} cy={by} r={10}
                         fill="#1B2A4A" stroke="#fff" strokeWidth={2}
                         onPointerDown={e => handlePointerDown(e, "B")}
@@ -1475,12 +1475,12 @@ export default function SizeTapeCalculator() {
                       <text x={sw / 2 + 16} y={by + 4} fontSize={10} fill="#1B2A4A" fontFamily="IBM Plex Mono">feet</text>
 
                       <line x1={x1} y1={y} x2={x2} y2={y} stroke={activePhotoType === "front" ? "#B08D57" : "#3B82F6"} strokeWidth={3} />
-                      <circle
+                      <line
                         className="st-handle" cx={x1} cy={y} r={11}
                         fill="#C1443C" stroke="#fff" strokeWidth={2}
                         onPointerDown={e => handlePointerDown(e, "L")}
                       />
-                      <circle
+                      <line
                         className="st-handle" cx={x2} cy={y} r={11}
                         fill="#C1443C" stroke="#fff" strokeWidth={2}
                         onPointerDown={e => handlePointerDown(e, "R")}
@@ -1508,7 +1508,7 @@ export default function SizeTapeCalculator() {
                             className="st-handle"
                             onPointerDown={e => handleCardPointerDown(e, "move")}
                           />
-                          <circle
+                          <line
                             cx={(cardRect.x + cardRect.w) * sw}
                             cy={(cardRect.y + cardRect.h) * sh}
                             r={8}
