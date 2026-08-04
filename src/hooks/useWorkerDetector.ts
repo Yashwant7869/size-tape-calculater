@@ -28,15 +28,38 @@ export function useWorkerDetector(model: PoseModelKind = "movenet-thunder") {
       return;
     }
     setState({ ready: false, status: "Preparing photo scanner…", error: null });
+    let initTimer: number | null = null;
     try {
       const w = new Worker(
         new URL("../workers/poseWorker.ts", import.meta.url),
         { type: "module" }
       );
       workerRef.current = w;
+      let initSettled = false;
+      initTimer = window.setTimeout(() => {
+        if (initSettled) return;
+        initSettled = true;
+        setState({
+          ready: false,
+          status: "Photo scanner could not load",
+          error: "worker init timeout",
+        });
+      }, 30000);
+      w.addEventListener("error", (event) => {
+        if (initSettled) return;
+        initSettled = true;
+        if (initTimer !== null) window.clearTimeout(initTimer);
+        setState({
+          ready: false,
+          status: "Photo scanner unavailable",
+          error: event.message || "worker failed to load",
+        });
+      });
       w.addEventListener("message", (e) => {
         const m = e.data;
         if (m.type === "init") {
+          initSettled = true;
+          if (initTimer !== null) window.clearTimeout(initTimer);
           if (m.ok) {
             setState({ ready: true, status: "Photo scanner ready", error: null });
           } else {
@@ -59,6 +82,7 @@ export function useWorkerDetector(model: PoseModelKind = "movenet-thunder") {
       });
     }
     return () => {
+      if (initTimer !== null) window.clearTimeout(initTimer);
       workerRef.current?.terminate();
       workerRef.current = null;
       callbacks.current.clear();
