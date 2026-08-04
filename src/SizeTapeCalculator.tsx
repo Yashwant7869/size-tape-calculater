@@ -1,78 +1,56 @@
 import { useEffect, useRef, useState, useCallback, PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from "react";
 
 /* ─────────────────────────────────────────────
-   Types
+   Local types & helpers
 ───────────────────────────────────────────── */
 type Gender = "male" | "female";
 type SizeStr = "XS" | "S" | "M" | "L" | "XL" | "XXL" | "XXXL";
 type PhotoType = "front" | "side";
 type CameraFacing = "user" | "environment";
 type CalibrationMethod = "height" | "card";
+type Fit = "slim" | "regular" | "relaxed";
+type Region = "US" | "UK" | "EU" | "IN" | "JP" | "CN" | "AU";
+type GarmentClass = "bottom" | "top" | "outerwear" | "dress";
+type PoseModelKind = "movenet-thunder" | "movenet-lightning" | "blazepose";
 
-interface KP { x: number; y: number; score: number; name: string }
-interface Pose { keypoints: KP[] }
-interface Detector { estimatePoses(img: HTMLCanvasElement): Promise<Pose[]> }
+import {
+  type KeypointWithNoise,
+  ORDER,
+  waistlineFraction,
+} from "./utils/measure";
+import {
+  sizeTable, waistRangeForSize, type SizeRow,
+  type BrandMap,
+} from "./utils/sizeTables";
+import {
+  gateKeypoints, validateOrientation,
+  checkPhotoAcceptance, imageQuality,
+  detectMirrorFlip, type ImageQuality,
+} from "./utils/imageAnalysis";
+import { agreementConfidence } from "./utils/confidence";
+import {
+  calibrate, CARD_WIDTH_CM, CARD_ASPECT,
+  type CalibrationInput, type CalibrationEstimate,
+} from "./utils/calibration";
+import { silhouetteWidthAveraged, type SilhouetteWidth } from "./utils/segmentation";
+import { useWorkerDetector } from "./hooks/useWorkerDetector";
+import { useSegmenter } from "./hooks/useSegmenter";
+import {
+  computeMeasurements, recommendSizes,
+  type DetectionResult, type Measurements, type Recommendations,
+} from "./hooks/useMeasurements";
 
 declare global {
   interface Window {
-    tf: { setBackend(b: string): Promise<void>; ready(): Promise<void> };
-    poseDetection: {
-      createDetector(model: string, cfg: object): Promise<Detector>;
-      SupportedModels: { MoveNet: string; BlazePose: string };
-      movenet: { modelType: { SINGLEPOSE_THUNDER: string; SINGLEPOSE_LIGHTNING: string } };
-    };
+    tf?: unknown;
+    SelfieSegmentation?: unknown;
   }
 }
 
 /* ─────────────────────────────────────────────
-   Constants / helpers
-───────────────────────────────────────────── */
-const ORDER: SizeStr[] = ["XS", "S", "M", "L", "XL", "XXL", "XXXL"];
-
-// Credit card standard dimensions (ISO/IEC 7810 ID-1)
-const CARD_WIDTH_CM = 8.56;
-const CARD_HEIGHT_CM = 5.398;
-
-function sizeFromBMI(bmi: number, g: Gender): SizeStr {
-  const t = g === "male" ? [18.5, 23, 27, 30] : [17.5, 21.5, 25, 28.5];
-  if (bmi < t[0]) return "XS";
-  if (bmi < t[1]) return "S";
-  if (bmi < t[2]) return "M";
-  if (bmi < t[3]) return "L";
-  return "XL";
-}
-
-function sizeFromWaist(waistCm: number, heightCm: number, g: Gender): SizeStr {
-  const ratio = waistCm / heightCm;
-  const men: [SizeStr, number][] = [["S", 0.48], ["M", 0.535], ["L", 0.595], ["XL", 0.655], ["XXL", 0.715]];
-  const women: [SizeStr, number][] = [["XS", 0.415], ["S", 0.445], ["M", 0.475], ["L", 0.525], ["XL", 0.59], ["XXL", 0.65]];
-  const table = g === "male" ? men : women;
-  for (const [s, max] of table) if (ratio <= max) return s;
-  return "XXXL";
-}
-
-// Ramanujan's second approximation for ellipse circumference (accurate to ~0.04%)
-function ellipseCircumference(a: number, b: number): number {
-  const h = Math.pow(a - b, 2) / Math.pow(a + b, 2);
-  return Math.PI * (a + b) * (1 + (3 * h) / (10 + Math.sqrt(4 - 3 * h)));
-}
-
-// Calculate confidence score based on keypoint visibility
-function calculateConfidence(keypoints: KP[], required: string[]): number {
-  let total = 0;
-  let count = 0;
-  for (const name of required) {
-    const kp = keypoints.find(k => k.name === name);
-    if (kp) {
-      total += kp.score;
-      count++;
-    }
-  }
-  return count > 0 ? (total / count) * 100 : 0;
-}
-
-/* ─────────────────────────────────────────────
-   Inline styles (mirroring original CSS)
+   Inline styles (CSS kept identical to v1 so the
+   user-visible design doesn't change, with a few
+   new selectors appended for the new UI).
 ───────────────────────────────────────────── */
 const GLOBAL_CSS = `
   @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
@@ -82,8 +60,8 @@ const GLOBAL_CSS = `
   }
   *{box-sizing:border-box;}
   body{margin:0;background:var(--paper);color:var(--ink);font-family:'Inter',sans-serif;padding:0 0 60px;}
-  button,input{font:inherit;}
-  button:focus-visible,input:focus-visible,summary:focus-visible{outline:3px solid rgba(59,130,246,.28);outline-offset:3px;}
+  button,input,select{font:inherit;}
+  button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:3px solid rgba(59,130,246,.28);outline-offset:3px;}
   .st-wrap{max-width:860px;margin:0 auto;padding:28px 20px 0;}
   .st-tape{height:8px;background:linear-gradient(90deg,var(--ink),var(--brass),var(--stitch));}
   .st-header{position:relative;overflow:hidden;padding:38px;border:1px solid var(--line);border-radius:20px;background:linear-gradient(145deg,#fff 0%,#f8f3e9 100%);box-shadow:0 18px 50px rgba(27,42,74,.08);}
@@ -119,6 +97,8 @@ const GLOBAL_CSS = `
   .st-label{display:block;font-size:12.5px;font-weight:600;color:#5b6478;margin-bottom:6px;letter-spacing:.02em;}
   .st-input{width:100%;padding:12px 14px;border:1.5px solid var(--line);border-radius:9px;font-family:'IBM Plex Mono',monospace;font-size:16px;background:var(--paper);color:var(--ink);}
   .st-input:focus{outline:none;border-color:var(--brass);}
+  .st-select{width:100%;padding:12px 14px;border:1.5px solid var(--line);border-radius:9px;font-family:'Inter',sans-serif;font-size:14px;background:var(--paper);color:var(--ink);}
+  .st-select:focus{outline:none;border-color:var(--brass);}
   .st-gtoggle{display:flex;gap:8px;margin-bottom:14px;}
   .st-gbtn{flex:1;padding:12px;border:1.5px solid var(--line);background:var(--paper);border-radius:9px;font-family:'Inter',sans-serif;font-weight:600;font-size:14px;cursor:pointer;color:#5b6478;transition:.15s;}
   .st-gbtn.active{border-color:var(--ink);background:var(--ink);color:#fff;}
@@ -173,6 +153,8 @@ const GLOBAL_CSS = `
   .st-result-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:18px;}
   .st-result-card{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:14px 16px;}
   .st-result-card .val{font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:600;}
+  .st-result-card .val.with-unc{font-size:16px;}
+  .st-result-card .unc{font-size:11.5px;color:#8a8f9c;font-weight:500;}
   .st-flag{margin-top:14px;padding:12px 14px;border-radius:9px;font-size:13px;line-height:1.5;}
   .st-flag.ok{background:#eef3ea;color:var(--sage);}
   .st-flag.warn{background:#faf1e8;color:#a5652a;}
@@ -214,7 +196,7 @@ const GLOBAL_CSS = `
   .st-privacy-strip{display:flex;align-items:flex-start;gap:9px;margin-top:12px;padding:10px 12px;border-radius:9px;background:#eef3ea;color:#52624b;font-size:11.5px;line-height:1.45;}
   .st-privacy-strip strong{display:block;color:#42523b;}
   .st-photo-preview{display:flex;gap:12px;margin-top:16px;flex-wrap:wrap;}
-  .st-photo-thumb{position:relative;width:120px;height:160px;border-radius:8px;overflow:hidden;border:2px solid var(--line);}
+  .st-photo-thumb{position:relative;width:120px;height:160px;border-radius:8px;overflow:hidden;border:2px solid var(--line);cursor:pointer;}
   .st-photo-thumb.active{border-color:var(--brass);}
   .st-photo-thumb img{width:100%;height:100%;object-fit:cover;}
   .st-photo-thumb .label{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.7);color:#fff;font-size:11px;padding:4px 8px;text-align:center;}
@@ -229,6 +211,28 @@ const GLOBAL_CSS = `
   .st-saved-mark{width:22px;height:22px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;border-radius:50%;background:#d7e5d0;font-size:11px;font-weight:800;}
   .st-result-note{margin-top:16px;padding:13px 15px;border:1px solid #dbe1e8;border-radius:10px;background:#f8fafc;color:#657083;font-size:12px;line-height:1.55;}
   .st-result-note strong{color:var(--ink);}
+
+  /* NEW: confidence sub-scores */
+  .st-sub-scores{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:10px;}
+  .st-sub-score{display:flex;align-items:center;gap:9px;padding:8px 11px;background:#fff;border:1px solid var(--line);border-radius:8px;font-size:11.5px;}
+  .st-sub-score .lbl{flex:0 0 110px;color:#5b6478;font-weight:600;}
+  .st-sub-score .bar{flex:1;height:6px;background:#d8d0bf;border-radius:3px;overflow:hidden;}
+  .st-sub-score .fill{height:100%;border-radius:3px;}
+  .st-sub-score .num{flex:0 0 36px;text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:11.5px;}
+
+  /* NEW: garment picker */
+  .st-garment-picker{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 4px;}
+  .st-garment-btn{padding:8px 12px;border:1.5px solid var(--line);background:#fff;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;color:#5b6478;font-family:'Inter',sans-serif;transition:.15s;}
+  .st-garment-btn.active{border-color:var(--ink);background:var(--ink);color:#fff;}
+
+  /* NEW: history */
+  .st-history{margin-top:14px;border:1px solid var(--line);border-radius:10px;background:#fff;overflow:hidden;}
+  .st-history summary{padding:11px 14px;color:#5b6478;font-size:12px;font-weight:600;cursor:pointer;list-style:none;}
+  .st-history summary::-webkit-details-marker{display:none;}
+  .st-history summary:after{content:"+";float:right;font-family:'IBM Plex Mono',monospace;}
+  .st-history[open] summary:after{content:"−";}
+  .st-history .item{display:flex;justify-content:space-between;align-items:center;padding:8px 14px;font-size:12px;border-top:1px solid var(--line);font-family:'IBM Plex Mono',monospace;}
+
   @media(max-width:680px){
     body{padding-bottom:32px;}
     .st-wrap{padding:16px 12px 0;}
@@ -250,8 +254,39 @@ const GLOBAL_CSS = `
     .st-confidence{align-items:flex-start;flex-wrap:wrap;}
     .st-confidence-bar{min-width:150px;}
     footer.st-note{padding:15px;}
+    .st-sub-scores{grid-template-columns:1fr;}
   }
 `;
+
+/* ─────────────────────────────────────────────
+   Local state types
+───────────────────────────────────────────── */
+interface PhotoState {
+  src: string | null;
+  confidence: number;
+  leftX: number; rightX: number; waistY: number; topY: number; bottomY: number;
+  autoDetected: boolean;
+  keypoints: KeypointWithNoise[];
+  keypointAvg: number;
+  imageW: number; imageH: number;
+  imageQuality: ImageQuality | null;
+  silhouette: SilhouetteWidth | null;
+  /** For side photo: depth fraction (separate from width) */
+  userAdjustedWaist: boolean;
+}
+
+interface CardCalibrationState {
+  x: number; y: number; w: number; h: number;
+}
+
+interface HistoryEntry {
+  ts: number;
+  size: SizeStr;
+  waistCm: number;
+  source: string;
+}
+
+const HISTORY_KEY = "stc:history:v2";
 
 /* ─────────────────────────────────────────────
    Component
@@ -267,6 +302,21 @@ export default function SizeTapeCalculator() {
   /* ── Calibration method ── */
   const [calibrationMethod, setCalibrationMethod] = useState<CalibrationMethod>("height");
 
+  /* ── Fit, region, brand (NEW) ── */
+  const [fit, setFit] = useState<Fit>("regular");
+  const [region, setRegion] = useState<Region>("US");
+  const [brand, setBrand] = useState<string>("");
+  const [brandMap] = useState<BrandMap>({}); // consumer can extend at runtime
+
+  /* ── Manual override (NEW §7.1) ── */
+  const [manualWaistCm, setManualWaistCm] = useState<string>("");
+
+  /* ── Garment class (NEW §4.3) ── */
+  const [garment, setGarment] = useState<GarmentClass>("bottom");
+
+  /* ── Pose model picker (NEW §1.1) ── */
+  const [poseModel, setPoseModel] = useState<PoseModelKind>("movenet-thunder");
+
   /* ── Step 2 state ── */
   const [step2Locked, setStep2Locked] = useState(true);
   const [step3Locked, setStep3Locked] = useState(true);
@@ -277,34 +327,19 @@ export default function SizeTapeCalculator() {
   const [cameraFacing, setCameraFacing] = useState<CameraFacing>("environment");
   const [cameraStreamVersion, setCameraStreamVersion] = useState(0);
   const [activePhotoType, setActivePhotoType] = useState<PhotoType>("front");
-  
+
   // Front photo state
-  const [frontPhotoSrc, setFrontPhotoSrc] = useState<string | null>(null);
-  const [frontConfidence, setFrontConfidence] = useState(0);
-  const [frontLeftX, setFrontLeftX] = useState(0.32);
-  const [frontRightX, setFrontRightX] = useState(0.68);
-  const [frontWaistY, setFrontWaistY] = useState(0.55);
-  const [frontTopY, setFrontTopY] = useState(0.06);
-  const [frontBottomY, setFrontBottomY] = useState(0.97);
-  const [frontAutoDetected, setFrontAutoDetected] = useState(false);
-  
+  const [front, setFront] = useState<PhotoState>(initialPhotoState());
   // Side photo state
-  const [sidePhotoSrc, setSidePhotoSrc] = useState<string | null>(null);
-  const [sideConfidence, setSideConfidence] = useState(0);
-  const [sideLeftX, setSideLeftX] = useState(0.35);
-  const [sideRightX, setSideRightX] = useState(0.65);
-  const [sideWaistY, setSideWaistY] = useState(0.55);
-  const [sideTopY, setSideTopY] = useState(0.06);
-  const [sideBottomY, setSideBottomY] = useState(0.97);
-  const [sideAutoDetected, setSideAutoDetected] = useState(false);
+  const [side, setSide] = useState<PhotoState>(initialPhotoState());
 
   // Card calibration state
-  const [cardRect, setCardRect] = useState({ x: 0.4, y: 0.7, w: 0.2, h: 0.126 });
-  const [cardDragging, setCardDragging] = useState<string | null>(null);
-  
+  const [cardRect, setCardRect] = useState<CardCalibrationState>({ x: 0.4, y: 0.7, w: 0.2, h: 0.2 * CARD_ASPECT });
+
   const [showInstructions, setShowInstructions] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [detectBanner, setDetectBanner] = useState<{ text: string; type: "loading" | "warn" | "success" } | null>(null);
+  const [warnings, setWarnings] = useState<string[]>([]);
 
   const draggingRef = useRef<string | null>(null);
 
@@ -315,16 +350,17 @@ export default function SizeTapeCalculator() {
   const [panY, setPanY] = useState(0);
 
   /* ── Step 3 state ── */
-  const [waistCm, setWaistCm] = useState<number | null>(null);
-  const [frontWidthCm, setFrontWidthCm] = useState<number | null>(null);
-  const [sideDepthCm, setSideDepthCm] = useState<number | null>(null);
-  const [measurementMethod, setMeasurementMethod] = useState<"single" | "ellipse">("single");
+  const [measurements, setMeasurements] = useState<Measurements | null>(null);
+  const [recommendations, setRecommendations] = useState<Recommendations | null>(null);
+
+  /* ── History (NEW §7.4) ── */
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
 
   /* ── Model ── */
-  const [modelReady, setModelReady] = useState(false);
-  const [modelStatus, setModelStatus] = useState("Preparing photo scanner…");
-  const [, setModelType] = useState<"lightning" | "thunder">("thunder");
-  const detectorRef = useRef<Detector | null>(null);
+  const poseWorker = useWorkerDetector();
+  const seg = useSegmenter();
+  const detectorRef = useRef<typeof poseWorker.detect | null>(null);
+  detectorRef.current = poseWorker.detect;
 
   /* ── DOM refs ── */
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -333,64 +369,28 @@ export default function SizeTapeCalculator() {
   const cameraRequestRef = useRef(0);
   const imgRef = useRef<HTMLImageElement>(null);
 
-  /* ── Inject global styles & scripts ── */
+  /* ── Inject global styles ── */
   useEffect(() => {
     const style = document.createElement("style");
     style.textContent = GLOBAL_CSS;
     document.head.appendChild(style);
-
-    const tfScript = document.createElement("script");
-    tfScript.src = "https://cdnjs.cloudflare.com/ajax/libs/tensorflow/4.20.0/tf.min.js";
-    tfScript.async = true;
-    document.head.appendChild(tfScript);
-
-    const pdScript = document.createElement("script");
-    pdScript.src = "https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection";
-    pdScript.async = true;
-    document.head.appendChild(pdScript);
-
-    let loaded = 0;
-    const onLoad = () => {
-      loaded++;
-      if (loaded === 2) initModel();
-    };
-    tfScript.addEventListener("load", onLoad);
-    pdScript.addEventListener("load", onLoad);
-
-    return () => {
-      document.head.removeChild(style);
-      if (document.head.contains(tfScript)) document.head.removeChild(tfScript);
-      if (document.head.contains(pdScript)) document.head.removeChild(pdScript);
-    };
+    return () => { document.head.removeChild(style); };
   }, []);
 
-  async function initModel() {
+  /* ── Load history ── */
+  useEffect(() => {
     try {
-      try { await window.tf.setBackend("webgl"); await window.tf.ready(); }
-      catch { await window.tf.setBackend("cpu"); await window.tf.ready(); }
-      
-      // Use MoveNet THUNDER for better accuracy (slower but more precise)
-      detectorRef.current = await window.poseDetection.createDetector(
-        window.poseDetection.SupportedModels.MoveNet,
-        { modelType: window.poseDetection.movenet.modelType.SINGLEPOSE_THUNDER }
-      );
-      setModelReady(true);
-      setModelType("thunder");
-      setModelStatus("Photo scanner ready");
-    } catch {
-      // Fallback to Lightning
-      try {
-        detectorRef.current = await window.poseDetection.createDetector(
-          window.poseDetection.SupportedModels.MoveNet,
-          { modelType: window.poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING }
-        );
-        setModelReady(true);
-        setModelType("lightning");
-        setModelStatus("Photo scanner ready");
-      } catch {
-        setModelStatus("Automatic scanning is unavailable — adjust the guides manually");
-      }
-    }
+      const raw = localStorage.getItem(HISTORY_KEY);
+      if (raw) setHistory(JSON.parse(raw) as HistoryEntry[]);
+    } catch {/* ignore */}
+  }, []);
+
+  function saveHistory(entry: HistoryEntry) {
+    setHistory((prev) => {
+      const next = [entry, ...prev].slice(0, 10);
+      try { localStorage.setItem(HISTORY_KEY, JSON.stringify(next)); } catch {/* ignore */}
+      return next;
+    });
   }
 
   /* ─── Step 1 ─── */
@@ -399,21 +399,26 @@ export default function SizeTapeCalculator() {
     if (!gender) { alert("Please select a gender."); return; }
     if (!h || !w) { alert("Please enter your height and weight."); return; }
     const b = w / Math.pow(h / 100, 2);
-    const sz = sizeFromBMI(b, gender);
+    // BMI thresholds — kept from v1.
+    const t = gender === "male" ? [18.5, 23, 27, 30] : [17.5, 21.5, 25, 28.5];
+    let sz: SizeStr;
+    if (b < t[0]) sz = "XS";
+    else if (b < t[1]) sz = "S";
+    else if (b < t[2]) sz = "M";
+    else if (b < t[3]) sz = "L";
+    else sz = "XL";
     setBmi(b); setBaselineSize(sz);
-    setStep2Locked(false); setStep3Locked(true); setWaistCm(null);
+    setStep2Locked(false); setStep3Locked(true); setMeasurements(null);
   }
 
   /* ─── Step 2: zoom / pan ─── */
   function resetZoom() { setZoom(1); setPanX(0); setPanY(0); }
-
   const zoomIn = () => setZoom(z => Math.min(ZOOM_MAX, +(z + ZOOM_STEP).toFixed(2)));
   const zoomOut = () => setZoom(z => {
     const nz = Math.max(ZOOM_MIN, +(z - ZOOM_STEP).toFixed(2));
     if (nz === ZOOM_MIN) { setPanX(0); setPanY(0); }
     return nz;
   });
-
   function handleWheel(e: ReactWheelEvent) {
     e.preventDefault();
     const delta = e.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP;
@@ -429,21 +434,17 @@ export default function SizeTapeCalculator() {
     const reader = new FileReader();
     reader.onload = ev => {
       const src = ev.target?.result as string;
-      if (type === "front") {
-        setFrontPhotoSrc(src);
-        setFrontAutoDetected(false);
-        setFrontLeftX(0.32); setFrontRightX(0.68); setFrontWaistY(0.55);
-        setFrontTopY(0.06); setFrontBottomY(0.97);
-      } else {
-        setSidePhotoSrc(src);
-        setSideAutoDetected(false);
-        setSideLeftX(0.35); setSideRightX(0.65); setSideWaistY(0.55);
-        setSideTopY(0.06); setSideBottomY(0.97);
-      }
+      const next: PhotoState = {
+        ...initialPhotoState(),
+        src,
+      };
+      if (type === "front") setFront(next);
+      else setSide(next);
       setActivePhotoType(type);
       setShowInstructions(false);
       setShowConfirm(false);
       setDetectBanner(null);
+      setWarnings([]);
       resetZoom();
     };
     reader.readAsDataURL(file);
@@ -453,99 +454,178 @@ export default function SizeTapeCalculator() {
   async function runDetection(type: PhotoType) {
     setDetectBanner({ text: "Scanning your photo…", type: "loading" });
     setShowInstructions(false);
-    
-    if (!detectorRef.current) {
+    setWarnings([]);
+
+    if (!poseWorker.ready) {
       setDetectBanner({ text: "The scanner is not ready yet — adjust the guides manually", type: "warn" });
       finishDetectUI(false); return;
     }
-    
-    try {
-      const imgEl = imgRef.current!;
-      const nw = imgEl.naturalWidth, nh = imgEl.naturalHeight;
-      const cnv = document.createElement("canvas");
-      cnv.width = nw; cnv.height = nh;
-      cnv.getContext("2d")!.drawImage(imgEl, 0, 0, nw, nh);
-      
-      const poses = await detectorRef.current.estimatePoses(cnv);
-      if (!poses.length) throw new Error("no-pose");
-      
-      const keypoints = poses[0].keypoints;
-      const kp: Record<string, KP> = {};
-      keypoints.forEach(k => (kp[k.name] = k));
-      
-      // Required keypoints for measurement
-      const frontRequired = ["nose", "left_shoulder", "right_shoulder", "left_hip", "right_hip", "left_ankle", "right_ankle"];
-      const sideRequired = ["nose", "left_shoulder", "right_shoulder", "left_hip", "right_hip", "left_ankle", "right_ankle"];
-      
-      const required = type === "front" ? frontRequired : sideRequired;
-      const missing = required.filter(n => !kp[n] || kp[n].score < 0.2);
-      
-      // Calculate confidence
-      const confidence = calculateConfidence(keypoints, required);
-      
-      if (missing.length > 2) throw new Error("low-confidence");
 
-      const noseY = kp.nose?.y || 0;
-      const ankleY = ((kp.left_ankle?.y || 0) + (kp.right_ankle?.y || 0)) / 2;
-      const shoulderY = ((kp.left_shoulder?.y || 0) + (kp.right_shoulder?.y || 0)) / 2;
-      const hipY = ((kp.left_hip?.y || 0) + (kp.right_hip?.y || 0)) / 2;
-      
-      let shoulderW: number, hipW: number, hipCenterX: number;
-      
-      if (type === "front") {
-        shoulderW = Math.abs((kp.left_shoulder?.x || 0) - (kp.right_shoulder?.x || 0));
-        hipW = Math.abs((kp.left_hip?.x || 0) - (kp.right_hip?.x || 0));
-        hipCenterX = ((kp.left_hip?.x || 0) + (kp.right_hip?.x || 0)) / 2;
-      } else {
-        // For side view, use single points for depth
-        shoulderW = Math.abs((kp.left_shoulder?.x || 0) - (kp.right_shoulder?.x || 0)) * 0.6;
-        hipW = Math.abs((kp.left_hip?.x || 0) - (kp.right_hip?.x || 0)) * 0.8;
-        hipCenterX = ((kp.left_hip?.x || 0) + (kp.right_hip?.x || 0)) / 2;
+    const imgEl = imgRef.current;
+    if (!imgEl || !imgEl.complete) {
+      setDetectBanner({ text: "Image is still loading — please wait", type: "warn" });
+      finishDetectUI(false);
+      return;
+    }
+
+    try {
+      // §1.4 mirror-flip detection
+      const { keypoints: rawKps, averageScore } = await poseWorker.detect(imgEl);
+      const mirrorFlipped = detectMirrorFlip(rawKps);
+
+      // Convert: keypoint names are guaranteed by the model.
+      const kp: Record<string, KeypointWithNoise> = {};
+      for (const k of rawKps) kp[k.name] = k;
+
+      // §1.2 stricter keypoint gate
+      const required = [
+        "left_shoulder", "right_shoulder", "left_hip", "right_hip",
+        "left_ankle", "right_ankle", "nose",
+      ];
+      const gate = gateKeypoints(rawKps, { required, minScore: 0.30, pairMinScore: 0.50 });
+      if (!gate.passed) {
+        const reason =
+          gate.missing.length > 0
+            ? `Missing: ${gate.missing.slice(0, 3).join(", ")}`
+            : `Weak: ${gate.weakPairs.slice(0, 2).join(", ")}`;
+        setDetectBanner({
+          text: `Body parts unclear (${reason}). Adjust the guides or re-shoot.`,
+          type: "warn",
+        });
+        const cur = type === "front" ? front : side;
+        const next: PhotoState = { ...cur, keypoints: rawKps, keypointAvg: averageScore, autoDetected: false };
+        if (type === "front") setFront(next); else setSide(next);
+        finishDetectUI(false);
+        return;
       }
 
+      // §1.5 orientation validation
+      const orient = validateOrientation(rawKps, type);
+      if (!orient.matches) {
+        setDetectBanner({
+          text: `This doesn't look like a ${type} photo. ${
+            orient.expected === "front"
+              ? "Please face the camera and re-shoot."
+              : orient.expected === "side"
+                ? "Please turn 90° and re-shoot."
+                : "Please re-shoot with the full body in view."
+          }`,
+          type: "warn",
+        });
+        const cur = type === "front" ? front : side;
+        const next: PhotoState = { ...cur, keypoints: rawKps, keypointAvg: averageScore, autoDetected: false };
+        if (type === "front") setFront(next); else setSide(next);
+        finishDetectUI(false);
+        return;
+      }
+
+      // §1.6 acceptance check
+      const accept = checkPhotoAcceptance(rawKps, imgEl.naturalWidth, imgEl.naturalHeight);
+      if (!accept.code) {/* ok */}
+      else {
+        setDetectBanner({ text: accept.reason ?? "Photo unsuitable", type: "warn" });
+        setWarnings([accept.instruction ?? ""].filter(Boolean));
+        const cur = type === "front" ? front : side;
+        const next: PhotoState = { ...cur, keypoints: rawKps, keypointAvg: averageScore, autoDetected: false };
+        if (type === "front") setFront(next); else setSide(next);
+        finishDetectUI(false);
+        return;
+      }
+
+      // §5.3 image quality
+      const canvas = document.createElement("canvas");
+      canvas.width = imgEl.naturalWidth;
+      canvas.height = imgEl.naturalHeight;
+      const ctx = canvas.getContext("2d")!;
+      ctx.drawImage(imgEl, 0, 0);
+      let iq: ImageQuality | null = null;
+      try {
+        const id = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        iq = imageQuality(id);
+      } catch {/* ignore (CORS, etc.) */}
+      const iqWarnings = iq?.warnings ?? [];
+
+      const nh = imgEl.naturalHeight, nw = imgEl.naturalWidth;
+      const shoulderW = Math.hypot(
+        (kp.right_shoulder.x - kp.left_shoulder.x),
+        (kp.right_shoulder.y - kp.left_shoulder.y)
+      );
+      const hipW = Math.hypot(
+        (kp.right_hip.x - kp.left_hip.x),
+        (kp.right_hip.y - kp.left_hip.y)
+      );
+      const hipY = (kp.left_hip.y + kp.right_hip.y) / 2;
+      const shoulderY = (kp.left_shoulder.y + kp.right_shoulder.y) / 2;
+      const ankleY = (kp.left_ankle.y + kp.right_ankle.y) / 2;
+      const noseY = kp.nose.y;
       const span = ankleY - noseY;
       const headTopY = noseY - span * 0.08;
       const feetY = ankleY + span * 0.04;
-      
-      // Natural waistline position
-      const wY = hipY - 0.20 * (hipY - shoulderY);
+      // §3.1 body-shape-aware waistline
+      const waistFrac = waistlineFraction(shoulderW, hipW);
+      const wY = hipY - waistFrac * (hipY - shoulderY);
+      // Width at the waist Y — interpolated as a baseline; silhouette refines it.
       const frac = (hipY - wY) / Math.max(1, hipY - shoulderY);
-      const waistWpx = hipW + (shoulderW - hipW) * frac * 0.5;
+      const waistWpxBase = hipW + (shoulderW - hipW) * frac * 0.5;
+      const hipCenterX = (kp.left_hip.x + kp.right_hip.x) / 2;
 
-      if (type === "front") {
-        setFrontTopY(headTopY / nh);
-        setFrontBottomY(feetY / nh);
-        setFrontWaistY(wY / nh);
-        setFrontLeftX((hipCenterX - waistWpx / 2) / nw);
-        setFrontRightX((hipCenterX + waistWpx / 2) / nw);
-        setFrontAutoDetected(true);
-        setFrontConfidence(confidence);
-      } else {
-        setSideTopY(headTopY / nh);
-        setSideBottomY(feetY / nh);
-        setSideWaistY(wY / nh);
-        setSideLeftX((hipCenterX - waistWpx / 2) / nw);
-        setSideRightX((hipCenterX + waistWpx / 2) / nw);
-        setSideAutoDetected(true);
-        setSideConfidence(confidence);
+      // §3.2 silhouette-based width
+      let silhouette: SilhouetteWidth | null = null;
+      if (seg.ready && seg.segmenter) {
+        try {
+          const mask = await seg.segmenter.segment(imgEl);
+          if (mask) {
+            const y0 = (wY - 30) / nh;
+            const y1 = (wY + 30) / nh;
+            silhouette = silhouetteWidthAveraged(mask, y0 + (y1 - y0) / 2, (y1 - y0) / 2);
+          }
+        } catch {/* ignore */}
       }
-      
-      const qualityText = confidence >= 80
+
+      const leftFrac = silhouette
+        ? silhouette.leftFrac
+        : (hipCenterX - waistWpxBase / 2) / nw;
+      const rightFrac = silhouette
+        ? silhouette.rightFrac
+        : (hipCenterX + waistWpxBase / 2) / nw;
+
+      const cur = type === "front" ? front : side;
+      const next: PhotoState = {
+        ...cur,
+        keypoints: rawKps,
+        keypointAvg: averageScore,
+        imageW: nw, imageH: nh,
+        imageQuality: iq,
+        silhouette,
+        topY: headTopY / nh,
+        bottomY: feetY / nh,
+        waistY: wY / nh,
+        leftX: leftFrac,
+        rightX: rightFrac,
+        autoDetected: true,
+        confidence: averageScore,
+        userAdjustedWaist: false,
+      };
+      if (type === "front") setFront(next); else setSide(next);
+
+      const qualityText = averageScore >= 80
         ? "photo quality is excellent"
-        : confidence >= 50
+        : averageScore >= 50
           ? "photo quality looks good"
           : "please review the guides";
       setDetectBanner({
-        text: `Photo ready — ${qualityText}`,
-        type: confidence >= 50 ? "success" : "warn"
+        text: `Photo ready — ${qualityText}${mirrorFlipped ? " (auto-unmirrored)" : ""}`,
+        type: averageScore >= 50 ? "success" : "warn",
       });
+      setWarnings(iqWarnings);
       finishDetectUI(true);
     } catch {
-      if (type === "front") setFrontAutoDetected(false);
-      else setSideAutoDetected(false);
+      const cur = type === "front" ? front : side;
+      const next: PhotoState = { ...cur, autoDetected: false };
+      if (type === "front") setFront(next); else setSide(next);
       setDetectBanner({
         text: "We could not detect the full body clearly — position the waist guide manually",
-        type: "warn"
+        type: "warn",
       });
       finishDetectUI(false);
     }
@@ -561,12 +641,10 @@ export default function SizeTapeCalculator() {
   function stopStream(stream: MediaStream | null) {
     stream?.getTracks().forEach(track => track.stop());
   }
-
   function cameraErrorMessage(error: unknown): string {
     const name = typeof error === "object" && error !== null && "name" in error
       ? String((error as { name?: unknown }).name)
       : "";
-
     if (name === "NotAllowedError" || name === "SecurityError") {
       return "Camera permission is blocked. Allow camera access in your browser settings, then try again.";
     }
@@ -583,21 +661,15 @@ export default function SizeTapeCalculator() {
   }
 
   async function startCamera(facing: CameraFacing = cameraFacing) {
-    // Do not reopen the already-selected camera, but allow a live switch to the other one.
     if (cameraStarting || (camActive && facing === cameraFacing)) return;
-
     if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
       setCameraError("Camera access requires a secure HTTPS connection. Open this page over HTTPS and try again.");
       return;
     }
-
     const requestId = ++cameraRequestRef.current;
     setCameraStarting(true);
     setCameraReady(false);
     setCameraError(null);
-
-    // Mobile browsers generally require the current camera track to be stopped before opening
-    // the other facing mode. Clear the old preview while the selected camera is opening.
     stopStream(camStreamRef.current);
     camStreamRef.current = null;
     if (videoRef.current) {
@@ -607,7 +679,6 @@ export default function SizeTapeCalculator() {
     if (camActive) setCamActive(false);
 
     try {
-      // `ideal` honours the selected camera when it exists and still works on devices with one camera.
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: false,
         video: {
@@ -616,16 +687,12 @@ export default function SizeTapeCalculator() {
           height: { ideal: 720 },
         },
       });
-
-      // The request may finish after the user cancels or the component unmounts.
       if (cameraRequestRef.current !== requestId) {
         stopStream(stream);
         return;
       }
-
       camStreamRef.current = stream;
       setCameraFacing(facing);
-      // Trigger the preview attachment effect even when React batches a live camera switch.
       setCameraStreamVersion(version => version + 1);
       setCamActive(true);
     } catch (error) {
@@ -637,9 +704,7 @@ export default function SizeTapeCalculator() {
       if (cameraRequestRef.current === requestId) setCameraStarting(false);
     }
   }
-
   function stopCamera() {
-    // Invalidate an in-flight permission request as well as the active stream.
     cameraRequestRef.current++;
     stopStream(camStreamRef.current);
     camStreamRef.current = null;
@@ -647,43 +712,27 @@ export default function SizeTapeCalculator() {
       videoRef.current.pause();
       videoRef.current.srcObject = null;
     }
-    setCamActive(false);
-    setCameraStarting(false);
-    setCameraReady(false);
+    setCamActive(false); setCameraStarting(false); setCameraReady(false);
   }
-
   function capturePhoto() {
     const video = videoRef.current;
     if (!video || !cameraReady || !video.videoWidth || !video.videoHeight) {
       setCameraError("Camera preview is still starting. Wait a moment, then take the photo.");
       return;
     }
-
     const canvas = document.createElement("canvas");
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     const context = canvas.getContext("2d");
-    if (!context) {
-      setCameraError("We could not prepare the photo. Please try again.");
-      return;
-    }
-
+    if (!context) { setCameraError("We could not prepare the photo. Please try again."); return; }
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
     canvas.toBlob(blob => {
-      if (blob) {
-        loadImageFile(blob, activePhotoType);
-        stopCamera();
-      } else {
-        setCameraError("We could not capture the photo. Please try again.");
-      }
+      if (blob) { loadImageFile(blob, activePhotoType); stopCamera(); }
+      else setCameraError("We could not capture the photo. Please try again.");
     }, "image/jpeg", 0.92);
   }
-
-  // The video element is rendered only after camera state changes. Attach the stream in an
-  // effect so it is not lost while the video ref is still null during `startCamera`.
   useEffect(() => {
     if (!camActive || !videoRef.current || !camStreamRef.current) return;
-
     const video = videoRef.current;
     const stream = camStreamRef.current;
     const onMetadata = () => {
@@ -692,11 +741,9 @@ export default function SizeTapeCalculator() {
         setCameraError("Camera preview could not start. Close it and try again.");
       });
     };
-
     video.addEventListener("loadedmetadata", onMetadata);
     video.srcObject = stream;
     if (video.readyState >= HTMLMediaElement.HAVE_METADATA) onMetadata();
-
     return () => {
       video.removeEventListener("loadedmetadata", onMetadata);
       if (video.srcObject === stream) {
@@ -705,8 +752,6 @@ export default function SizeTapeCalculator() {
       }
     };
   }, [camActive, cameraStreamVersion]);
-
-  // Always release the hardware camera if the component is removed from the page.
   useEffect(() => () => {
     cameraRequestRef.current++;
     stopStream(camStreamRef.current);
@@ -720,16 +765,21 @@ export default function SizeTapeCalculator() {
     (e.target as Element).setPointerCapture(e.pointerId);
   }, []);
 
-  // Get current photo state based on active type
-  const currentPhotoSrc = activePhotoType === "front" ? frontPhotoSrc : sidePhotoSrc;
-  const leftX = activePhotoType === "front" ? frontLeftX : sideLeftX;
-  const rightX = activePhotoType === "front" ? frontRightX : sideRightX;
-  const waistY = activePhotoType === "front" ? frontWaistY : sideWaistY;
-  const topY = activePhotoType === "front" ? frontTopY : sideTopY;
-  const bottomY = activePhotoType === "front" ? frontBottomY : sideBottomY;
-  const autoDetected = activePhotoType === "front" ? frontAutoDetected : sideAutoDetected;
-  const currentConfidence = activePhotoType === "front" ? frontConfidence : sideConfidence;
+  const currentPhoto: PhotoState = activePhotoType === "front" ? front : side;
+  const currentPhotoSrc = currentPhoto.src;
+  const leftX = currentPhoto.leftX;
+  const rightX = currentPhoto.rightX;
+  const waistY = currentPhoto.waistY;
+  const topY = currentPhoto.topY;
+  const bottomY = currentPhoto.bottomY;
+  const autoDetected = currentPhoto.autoDetected;
+  const currentConfidence = currentPhoto.confidence;
   const currentPhotoQuality = currentConfidence >= 70 ? "Clear" : currentConfidence >= 40 ? "Good" : "Review needed";
+
+  function updateActive(updates: Partial<PhotoState>) {
+    if (activePhotoType === "front") setFront(prev => ({ ...prev, ...updates }));
+    else setSide(prev => ({ ...prev, ...updates }));
+  }
 
   function handlePointerMove(e: ReactPointerEvent<SVGSVGElement>) {
     if (!draggingRef.current || !imgRef.current) return;
@@ -737,166 +787,217 @@ export default function SizeTapeCalculator() {
     const fx = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
     const fy = Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height));
     const h = draggingRef.current;
-    
     if (activePhotoType === "front") {
-      if (h === "L") setFrontLeftX(Math.min(fx, frontRightX - 0.02));
-      if (h === "R") setFrontRightX(Math.max(fx, frontLeftX + 0.02));
-      if (h === "Y") setFrontWaistY(fy);
-      if (h === "T") setFrontTopY(Math.min(fy, frontBottomY - 0.05));
-      if (h === "B") setFrontBottomY(Math.max(fy, frontTopY + 0.05));
+      if (h === "L") updateActive({ leftX: Math.min(fx, front.rightX - 0.02) });
+      if (h === "R") updateActive({ rightX: Math.max(fx, front.leftX + 0.02) });
+      if (h === "Y") updateActive({ waistY: fy, userAdjustedWaist: true });
+      if (h === "T") updateActive({ topY: Math.min(fy, front.bottomY - 0.05) });
+      if (h === "B") updateActive({ bottomY: Math.max(fy, front.topY + 0.05) });
     } else {
-      if (h === "L") setSideLeftX(Math.min(fx, sideRightX - 0.02));
-      if (h === "R") setSideRightX(Math.max(fx, sideLeftX + 0.02));
-      if (h === "Y") setSideWaistY(fy);
-      if (h === "T") setSideTopY(Math.min(fy, sideBottomY - 0.05));
-      if (h === "B") setSideBottomY(Math.max(fy, sideTopY + 0.05));
+      if (h === "L") updateActive({ leftX: Math.min(fx, side.rightX - 0.02) });
+      if (h === "R") updateActive({ rightX: Math.max(fx, side.leftX + 0.02) });
+      if (h === "Y") updateActive({ waistY: fy, userAdjustedWaist: true });
+      if (h === "T") updateActive({ topY: Math.min(fy, side.bottomY - 0.05) });
+      if (h === "B") updateActive({ bottomY: Math.max(fy, side.topY + 0.05) });
     }
   }
-
   function handlePointerUp() { draggingRef.current = null; }
 
   /* ─── Card calibration handlers ─── */
+  const [cardDragging, setCardDragging] = useState<string | null>(null);
   function handleCardPointerDown(e: ReactPointerEvent, edge: string) {
     e.preventDefault(); e.stopPropagation();
     setCardDragging(edge);
   }
-  
   function handleCardPointerMove(e: ReactPointerEvent<SVGSVGElement>) {
     if (!cardDragging || !imgRef.current) return;
     const rect = imgRef.current.getBoundingClientRect();
     const fx = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
     const fy = Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height));
-    
     setCardRect(prev => {
       if (cardDragging === "move") {
         return { ...prev, x: fx - prev.w / 2, y: fy - prev.h / 2 };
       }
       if (cardDragging === "resize") {
         const newW = Math.max(0.05, fx - prev.x);
-        const newH = newW * (CARD_HEIGHT_CM / CARD_WIDTH_CM);
+        const newH = newW * CARD_ASPECT;
         return { ...prev, w: newW, h: newH };
       }
       return prev;
     });
   }
-  
   function handleCardPointerUp() { setCardDragging(null); }
 
   /* ─── Confirm waist ─── */
+  function buildCalibration(): { front: CalibrationEstimate; side: CalibrationEstimate } {
+    const heightCm = parseFloat(heightVal) || 0;
+    const refsF: CalibrationInput[] = [];
+    if (calibrationMethod === "card" && front.imageW > 0) {
+      const cardPixelWidth = cardRect.w * front.imageW;
+      refsF.push({ method: "card", pxLength: cardPixelWidth, cmLength: CARD_WIDTH_CM });
+    }
+    if (heightCm > 0 && front.imageH > 0) {
+      const pxHeight = (front.bottomY - front.topY) * front.imageH;
+      if (pxHeight > 0) refsF.push({ method: "height", pxLength: pxHeight, cmLength: heightCm * 0.93 });
+    }
+    const frontCal = calibrate(refsF);
+
+    const refsS: CalibrationInput[] = [];
+    if (heightCm > 0 && side.imageH > 0) {
+      const pxHeight = (side.bottomY - side.topY) * side.imageH;
+      if (pxHeight > 0) refsS.push({ method: "height", pxLength: pxHeight, cmLength: heightCm * 0.93 });
+    }
+    if (refsS.length === 0 && frontCal.scaleCmPerPx > 0) {
+      // Fallback to front-photo scale.
+      refsS.push({ method: "height", pxLength: 1, cmLength: frontCal.scaleCmPerPx });
+    }
+    const sideCal = calibrate(refsS);
+
+    return { front: frontCal, side: sideCal };
+  }
+
+  function buildDetection(state: PhotoState, isFront: boolean): DetectionResult | null {
+    if (!state.src) return null;
+    return {
+      keypoints: state.keypoints,
+      imageW: state.imageW,
+      imageH: state.imageH,
+      waistYFrac: state.waistY,
+      leftFrac: state.leftX,
+      rightFrac: state.rightX,
+      topFrac: state.topY,
+      bottomFrac: state.bottomY,
+      keypointAvg: state.keypointAvg,
+      silhouetteLeftFrac: state.silhouette?.leftFrac,
+      silhouetteRightFrac: state.silhouette?.rightFrac,
+      imageQuality: state.imageQuality ?? undefined,
+      userAdjustedWaist: state.userAdjustedWaist,
+    };
+  }
+
   function confirmWaist() {
-    const img = imgRef.current!;
-    let scale: number;
-    
-    if (calibrationMethod === "card" && frontPhotoSrc) {
-      // Use credit card for calibration
-      const cardPixelWidth = cardRect.w * img.naturalWidth;
-      scale = CARD_WIDTH_CM / cardPixelWidth;
-    } else {
-      // Use height for calibration
-      const pxHeight = (frontBottomY - frontTopY) * img.naturalHeight;
-      if (pxHeight <= 0) {
-        alert("Please position the head and feet guides correctly.");
-        return;
-      }
-      const h = parseFloat(heightVal);
-      scale = h / pxHeight;
+    const heightCm = parseFloat(heightVal) || 0;
+    if (!gender || heightCm <= 0) {
+      alert("Please complete Step 1 first.");
+      return;
     }
-    
-    // Calculate front width
-    const frontPxWidth = (frontRightX - frontLeftX) * img.naturalWidth;
-    const frontW = frontPxWidth * scale;
-    setFrontWidthCm(frontW);
-    
-    // Check if we have side photo for ellipse calculation
-    if (sidePhotoSrc) {
-      // For side photo, we need its own scale
-      let sideScale: number;
-      if (calibrationMethod === "height") {
-        const sidePxHeight = (sideBottomY - sideTopY) * img.naturalHeight;
-        sideScale = parseFloat(heightVal) / sidePxHeight;
-      } else {
-        sideScale = scale; // Use same card scale
-      }
-      
-      const sidePxWidth = (sideRightX - sideLeftX) * img.naturalWidth;
-      const sideW = sidePxWidth * sideScale;
-      setSideDepthCm(sideW);
-      
-      // Use Ramanujan's formula for ellipse circumference
-      const a = frontW / 2; // semi-major axis (front half-width)
-      const b = sideW / 2;  // semi-minor axis (side half-depth)
-      const circumference = ellipseCircumference(a, b);
-      setWaistCm(circumference);
-      setMeasurementMethod("ellipse");
-    } else {
-      // Single photo method with gender-based multiplier
-      const factor = gender === "male" ? 2.5 : 2.35;
-      const wc = frontW * factor;
-      setWaistCm(wc);
-      setMeasurementMethod("single");
+
+    // §7.1 manual override takes precedence
+    const manualCm = parseFloat(manualWaistCm);
+    const userWaistOverride = Number.isFinite(manualCm) && manualCm > 0 ? manualCm : undefined;
+
+    const { front: frontCal, side: sideCal } = buildCalibration();
+    const frontDetection = buildDetection(front, true);
+    const sideDetection = side.src ? buildDetection(side, false) : null;
+
+    // Sanity: if a card calibration was chosen but no card rect, fall back
+    if (calibrationMethod === "card" && frontCal.scaleCmPerPx === 0) {
+      alert("Please position the card in the front photo to calibrate scale.");
+      return;
     }
-    
+
+    const m = computeMeasurements({
+      gender,
+      heightCm,
+      userWaistOverride,
+      front: frontDetection,
+      side: sideDetection,
+      frontCal,
+      sideCal,
+    });
+    if (!m) {
+      alert("Could not compute a measurement. Please check that your photos are correctly positioned.");
+      return;
+    }
+    // §3.7 plausibility check
+    if (!m.plausibility.ok) {
+      setDetectBanner({
+        text: `Waist is ${m.waistCm.toFixed(1)} cm — ${m.plausibility.reason}. Please re-shoot if this looks wrong.`,
+        type: "warn",
+      });
+    }
+    setMeasurements(m);
     setStep3Locked(false);
     setTimeout(() => {
       document.getElementById("st-step3")?.scrollIntoView({ behavior: "smooth" });
     }, 50);
   }
 
+  /* Recompute recommendations whenever measurements / fit / region / brand change. */
+  useEffect(() => {
+    if (!measurements || !gender) { setRecommendations(null); return; }
+    const heightCm = parseFloat(heightVal) || 0;
+    const recs = recommendSizes(
+      measurements, baselineSize, heightCm, gender, fit, region,
+      brandMap, brand || null
+    );
+    setRecommendations(recs);
+    if (recs && measurements) {
+      const size = (recs as unknown as Record<GarmentClass, SizeStr>)[garment];
+      saveHistory({
+        ts: Date.now(),
+        size,
+        waistCm: measurements.waistCm,
+        source: recs.source,
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [measurements, gender, heightVal, fit, region, brand, garment]);
+
   /* ─── Retake ─── */
   function retake(type: PhotoType) {
-    if (type === "front") {
-      setFrontPhotoSrc(null);
-      setFrontAutoDetected(false);
-    } else {
-      setSidePhotoSrc(null);
-      setSideAutoDetected(false);
-    }
-    setShowConfirm(false);
-    setShowInstructions(false);
-    setDetectBanner(null);
-    resetZoom();
+    if (type === "front") setFront(initialPhotoState());
+    else setSide(initialPhotoState());
+    setShowConfirm(false); setShowInstructions(false); setDetectBanner(null);
+    setWarnings([]); resetZoom();
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
-  /* ─── Results ─── */
-  const heightCm = parseFloat(heightVal) || 0;
-  const waistSize = waistCm && gender && heightCm ? sizeFromWaist(waistCm, heightCm, gender) : null;
-  const finalSize = waistSize || baselineSize;
-
+  /* ─── Photo status flags ─── */
+  const finalSize: SizeStr | null = (() => {
+    if (!recommendations) return baselineSize;
+    return (recommendations as unknown as Record<GarmentClass, SizeStr>)[garment];
+  })();
   let flagType: "ok" | "warn" | null = null;
   let flagText = "";
-  if (waistSize && baselineSize) {
-    const diff = Math.abs(ORDER.indexOf(waistSize) - ORDER.indexOf(baselineSize));
-    if (diff >= 2) {
-      flagType = "warn";
-      flagText = "Your details and photo estimate do not match closely. For a better result, retake the photo while standing straight.";
-    } else {
+  if (recommendations && baselineSize) {
+    const photoIdx = ORDER.indexOf((recommendations as unknown as Record<GarmentClass, SizeStr>)[garment]);
+    const bmiIdx = ORDER.indexOf(baselineSize);
+    const conf = agreementConfidence(photoIdx, bmiIdx);
+    if (conf >= 75) {
       flagType = "ok";
       flagText = "Your details and photo estimate are closely aligned.";
+    } else if (conf >= 50) {
+      flagType = "ok";
+      flagText = "Your details and photo estimate are within one size — confidence is reasonable.";
+    } else {
+      flagType = "warn";
+      flagText = "Your details and photo estimate do not match closely. For a better result, retake the photo while standing straight.";
     }
   }
 
-  // User-facing quality is based on photo coverage, not a measurement guarantee.
-  const getPhotoSetupQuality = () => {
-    if (measurementMethod === "ellipse" && frontConfidence >= 70 && sideConfidence >= 70) return "high";
-    if (frontConfidence >= 60 || measurementMethod === "ellipse") return "medium";
+  function getPhotoSetupQuality(): "high" | "medium" | "low" {
+    if (measurements && measurements.confidence.overall >= 75) return "high";
+    if (measurements && measurements.confidence.overall >= 50) return "medium";
     return "low";
-  };
+  }
 
-  type ChartRow = [SizeStr, number, number];
-  const menChart: ChartRow[] = [["S", 0, 0.48], ["M", 0.48, 0.535], ["L", 0.535, 0.595], ["XL", 0.595, 0.655], ["XXL", 0.655, 0.715]];
-  const womenChart: ChartRow[] = [["XS", 0, 0.415], ["S", 0.415, 0.445], ["M", 0.445, 0.475], ["L", 0.475, 0.525], ["XL", 0.525, 0.59], ["XXL", 0.59, 0.65]];
-  const chartRows = gender === "male" ? menChart : gender === "female" ? womenChart : [];
+  /* Size chart */
+  const heightCm = parseFloat(heightVal) || 0;
+  const chartRows: SizeRow[] = (() => {
+    if (!gender) return [];
+    const table = sizeTable(gender, garment, fit, region);
+    return table.rows;
+  })();
 
   const [imgDim, setImgDim] = useState({ w: 0, h: 0 });
   function onImgLoad() {
     const el = imgRef.current;
-    if (el) { 
-      setImgDim({ w: el.clientWidth, h: el.clientHeight }); 
-      runDetection(activePhotoType); 
+    if (el) {
+      setImgDim({ w: el.clientWidth, h: el.clientHeight });
+      runDetection(activePhotoType);
     }
   }
-  
   useEffect(() => {
     if (!currentPhotoSrc) return;
     const obs = new ResizeObserver(() => {
@@ -944,8 +1045,12 @@ export default function SizeTapeCalculator() {
               Your photos stay private on this device
             </span>
             <span className="st-pill status" aria-live="polite">
-              <span className={`st-dot ${modelReady ? "ready" : modelStatus.includes("Preparing") ? "busy" : ""}`} />
-              {modelStatus}
+              <span className={`st-dot ${poseWorker.ready ? "ready" : poseWorker.status.includes("Preparing") ? "busy" : ""}`} />
+              {poseWorker.status}
+            </span>
+            <span className="st-pill status" aria-live="polite">
+              <span className={`st-dot ${seg.ready ? "ready" : seg.status.includes("Preparing") ? "busy" : ""}`} />
+              {seg.status}
             </span>
           </div>
 
@@ -990,7 +1095,7 @@ export default function SizeTapeCalculator() {
               <input className="st-input" type="number" placeholder="e.g. 60" min={30} max={180} value={weightVal} onChange={e => setWeightVal(e.target.value)} />
             </div>
           </div>
-          
+
           {/* Photo scale method */}
           <label className="st-label" style={{ marginTop: 16 }}>How should we scale your photo?</label>
           <div className="st-gtoggle">
@@ -1015,6 +1120,64 @@ export default function SizeTapeCalculator() {
               : "Recommended: make sure your full body is visible from head to toe."}
           </p>
 
+          {/* NEW: Fit, region, brand, garment */}
+          <div className="st-row-3" style={{ marginTop: 16 }}>
+            <div>
+              <label className="st-label">Fit preference</label>
+              <select className="st-select" value={fit} onChange={e => setFit(e.target.value as Fit)}>
+                <option value="slim">Slim</option>
+                <option value="regular">Regular</option>
+                <option value="relaxed">Relaxed</option>
+              </select>
+            </div>
+            <div>
+              <label className="st-label">Region</label>
+              <select className="st-select" value={region} onChange={e => setRegion(e.target.value as Region)}>
+                <option value="US">US</option>
+                <option value="UK">UK</option>
+                <option value="EU">EU</option>
+                <option value="IN">India</option>
+                <option value="JP">Japan</option>
+                <option value="CN">China</option>
+                <option value="AU">Australia</option>
+              </select>
+            </div>
+            <div>
+              <label className="st-label">Brand (optional)</label>
+              <input className="st-input" type="text" placeholder="e.g. Zara" value={brand} onChange={e => setBrand(e.target.value)} />
+            </div>
+          </div>
+          <p style={{ fontSize: 12, color: "#8a8f9c", margin: "0 0 8px", lineHeight: 1.5 }}>
+            Region and fit refine the recommended size. Brand is only used if a matching size chart is bundled.
+          </p>
+
+          {/* NEW: manual waist override */}
+          <label className="st-label" style={{ marginTop: 8 }}>Already know your waist? (optional)</label>
+          <input className="st-input" type="number" placeholder="e.g. 78" min={40} max={180}
+            value={manualWaistCm} onChange={e => setManualWaistCm(e.target.value)} />
+          <p style={{ fontSize: 12, color: "#8a8f9c", margin: "6px 0 0", lineHeight: 1.5 }}>
+            If you fill this in, it will be used instead of the photo measurement.
+          </p>
+
+          {/* NEW: pose model picker */}
+          <label className="st-label" style={{ marginTop: 14 }}>Pose detection model</label>
+          <div className="st-gtoggle">
+            <button
+              type="button"
+              className={`st-gbtn ${poseModel === "movenet-thunder" ? "active" : ""}`}
+              onClick={() => setPoseModel("movenet-thunder")}
+            >
+              MoveNet Thunder · default
+            </button>
+            <button
+              type="button"
+              className={`st-gbtn ${poseModel === "blazepose" ? "active" : ""}`}
+              onClick={() => setPoseModel("blazepose")}
+            >
+              BlazePose · 33 keypoints
+            </button>
+          </div>
+
           <button type="button" className="st-btn" onClick={calcBaseline} style={{ marginTop: 16 }}>
             Continue <span aria-hidden="true">→</span>
           </button>
@@ -1034,25 +1197,23 @@ export default function SizeTapeCalculator() {
             <span className="st-hint">Front required · Side recommended</span>
           </div>
 
-          {/* Photo type tabs */}
           <div className="st-tabs">
-            <button 
-              className={`st-tab ${activePhotoType === "front" ? "active" : ""} ${frontPhotoSrc ? "" : ""}`}
+            <button
+              className={`st-tab ${activePhotoType === "front" ? "active" : ""}`}
               onClick={() => setActivePhotoType("front")}
             >
               <span className="icon" aria-hidden="true">①</span>
-              Front view {frontPhotoSrc && "✓"}
+              Front view {front.src && "✓"}
             </button>
-            <button 
+            <button
               className={`st-tab ${activePhotoType === "side" ? "active" : ""}`}
               onClick={() => setActivePhotoType("side")}
             >
               <span className="icon" aria-hidden="true">②</span>
-              Side view {sidePhotoSrc && "✓"} <span style={{ fontSize: 10, opacity: 0.72 }}>(recommended)</span>
+              Side view {side.src && "✓"} <span style={{ fontSize: 10, opacity: 0.72 }}>(recommended)</span>
             </button>
           </div>
 
-          {/* Short, action-focused photo checklist */}
           <div className="st-photo-guide">
             <div className="st-guide-head">
               <div>
@@ -1078,7 +1239,7 @@ export default function SizeTapeCalculator() {
             <p className="st-active-tip">
               <strong>{activePhotoType === "front" ? "Front photo:" : "Side photo:"}</strong>{" "}
               {activePhotoType === "front"
-                ? "face the camera and stand straight."
+                ? "face the camera and stand straight. Breathe out gently before capture."
                 : "turn 90° and stand in a true side profile."}
               {calibrationMethod === "card" && activePhotoType === "front"
                 ? " Hold a standard bank card flat near your waist."
@@ -1086,19 +1247,18 @@ export default function SizeTapeCalculator() {
             </p>
           </div>
 
-          {/* Photo previews */}
-          {(frontPhotoSrc || sidePhotoSrc) && (
+          {(front.src || side.src) && (
             <div className="st-photo-preview">
-              {frontPhotoSrc && (
+              {front.src && (
                 <div className={`st-photo-thumb ${activePhotoType === "front" ? "active" : ""}`} onClick={() => setActivePhotoType("front")}>
-                  <img src={frontPhotoSrc} alt="Front" />
+                  <img src={front.src} alt="Front" />
                   <span className="label">Front view · Ready</span>
                   <button className="remove" onClick={(e) => { e.stopPropagation(); retake("front"); }}>×</button>
                 </div>
               )}
-              {sidePhotoSrc && (
+              {side.src && (
                 <div className={`st-photo-thumb ${activePhotoType === "side" ? "active" : ""}`} onClick={() => setActivePhotoType("side")}>
-                  <img src={sidePhotoSrc} alt="Side" />
+                  <img src={side.src} alt="Side" />
                   <span className="label">Side view · Ready</span>
                   <button className="remove" onClick={(e) => { e.stopPropagation(); retake("side"); }}>×</button>
                 </div>
@@ -1106,7 +1266,6 @@ export default function SizeTapeCalculator() {
             </div>
           )}
 
-          {/* Upload zones */}
           {!currentPhotoSrc && !camActive && (
             <>
               <div className="st-upload-choices" style={{ marginTop: 16 }}>
@@ -1247,7 +1406,6 @@ export default function SizeTapeCalculator() {
                       onPointerMove={(e) => { handlePointerMove(e); handleCardPointerMove(e); }}
                       onPointerUp={() => { handlePointerUp(); handleCardPointerUp(); }}
                     >
-                      {/* Head top line */}
                       <line x1={0} y1={ty} x2={sw} y2={ty} stroke="#1B2A4A" strokeWidth={2} strokeDasharray="6,4" />
                       <circle
                         className="st-handle" cx={sw / 2} cy={ty} r={10}
@@ -1256,7 +1414,6 @@ export default function SizeTapeCalculator() {
                       />
                       <text x={sw / 2 + 16} y={ty + 4} fontSize={10} fill="#1B2A4A" fontFamily="IBM Plex Mono">head</text>
 
-                      {/* Feet line */}
                       <line x1={0} y1={by} x2={sw} y2={by} stroke="#1B2A4A" strokeWidth={2} strokeDasharray="6,4" />
                       <circle
                         className="st-handle" cx={sw / 2} cy={by} r={10}
@@ -1265,7 +1422,6 @@ export default function SizeTapeCalculator() {
                       />
                       <text x={sw / 2 + 16} y={by + 4} fontSize={10} fill="#1B2A4A" fontFamily="IBM Plex Mono">feet</text>
 
-                      {/* Waist line */}
                       <line x1={x1} y1={y} x2={x2} y2={y} stroke={activePhotoType === "front" ? "#B08D57" : "#3B82F6"} strokeWidth={3} />
                       <circle
                         className="st-handle" cx={x1} cy={y} r={11}
@@ -1285,8 +1441,7 @@ export default function SizeTapeCalculator() {
                       <text x={sw / 2} y={y + 4} fontSize={9} fill="#fff" textAnchor="middle" fontFamily="IBM Plex Mono" pointerEvents="none">
                         {autoDetected ? "waist" : "set waist"}
                       </text>
-                      
-                      {/* Credit card overlay for calibration */}
+
                       {calibrationMethod === "card" && activePhotoType === "front" && (
                         <>
                           <rect
@@ -1311,11 +1466,11 @@ export default function SizeTapeCalculator() {
                             className="st-handle"
                             onPointerDown={e => handleCardPointerDown(e, "resize")}
                           />
-                          <text 
-                            x={cardRect.x * sw + 4} 
-                            y={cardRect.y * sh + 14} 
-                            fontSize={10} 
-                            fill="#3B82F6" 
+                          <text
+                            x={cardRect.x * sw + 4}
+                            y={cardRect.y * sh + 14}
+                            fontSize={10}
+                            fill="#3B82F6"
                             fontFamily="IBM Plex Mono"
                           >
                             standard card
@@ -1327,7 +1482,6 @@ export default function SizeTapeCalculator() {
                 </div>
               </div>
 
-              {/* Photo scan quality — intentionally qualitative, not an accuracy claim */}
               {currentConfidence > 0 && (
                 <div className="st-confidence">
                   <span style={{ fontSize: 12, fontWeight: 600 }}>Photo scan quality</span>
@@ -1350,7 +1504,6 @@ export default function SizeTapeCalculator() {
                 </div>
               )}
 
-              {/* Zoom controls */}
               <div className="st-zoom-controls">
                 <span className="st-zlabel">Zoom</span>
                 <div className="st-zgroup">
@@ -1369,7 +1522,6 @@ export default function SizeTapeCalculator() {
             </>
           )}
 
-          {/* Detection banner */}
           {detectBanner && (
             <div className={`st-detect-banner ${detectBanner.type}`}>
               {detectBanner.type === "loading" && <div className="st-spinner" />}
@@ -1379,7 +1531,17 @@ export default function SizeTapeCalculator() {
             </div>
           )}
 
-          {/* Instructions */}
+          {warnings.length > 0 && (
+            <div style={{ marginTop: 10 }}>
+              {warnings.map((w, i) => (
+                <div key={i} className="st-detect-banner warn" style={{ marginTop: 6 }}>
+                  <span>💡</span>
+                  <span>{w}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
           {showInstructions && (
             <p className="st-instructions">
               {activePhotoType === "front"
@@ -1392,23 +1554,20 @@ export default function SizeTapeCalculator() {
             </p>
           )}
 
-          {/* Action buttons */}
           <div style={{ marginTop: 16, display: "flex", gap: 10, flexWrap: "wrap" }}>
-            {frontPhotoSrc && !sidePhotoSrc && (
-              <button 
-                className="st-btn blue" 
+            {front.src && !side.src && (
+              <button
+                className="st-btn blue"
                 onClick={() => { setActivePhotoType("side"); }}
               >
                 Add a side photo →
               </button>
             )}
-            
-            {showConfirm && frontPhotoSrc && (
+            {showConfirm && front.src && (
               <button className="st-btn" onClick={confirmWaist}>
-                {sidePhotoSrc ? "See my size →" : "Continue with front photo →"}
+                {side.src ? "See my size →" : "Continue with front photo →"}
               </button>
             )}
-            
             {currentPhotoSrc && (
               <button className="st-btn ghost" onClick={() => retake(activePhotoType)}>
                 Change {activePhotoType === "front" ? "front" : "side"} photo
@@ -1424,17 +1583,34 @@ export default function SizeTapeCalculator() {
             <h2>Final size</h2>
           </div>
 
+          {/* Garment picker */}
+          {recommendations && (
+            <div className="st-garment-picker" role="tablist" aria-label="Garment class">
+              {(["bottom", "top", "outerwear", "dress"] as GarmentClass[]).map((g) => (
+                <button
+                  key={g}
+                  role="tab"
+                  aria-selected={garment === g}
+                  className={`st-garment-btn ${garment === g ? "active" : ""}`}
+                  onClick={() => setGarment(g)}
+                >
+                  {g[0].toUpperCase() + g.slice(1)}
+                </button>
+              ))}
+            </div>
+          )}
+
           {finalSize && (
             <>
               <div className="st-result-hero">
                 <p className="st-eyebrow">Your recommended size</p>
                 <div className="st-size-big">{finalSize}</div>
                 <div style={{ fontSize: "12.5px", opacity: 0.78, marginBottom: 12 }}>
-                  {measurementMethod === "ellipse"
-                    ? "Based on your front and side photos"
-                    : waistSize
-                      ? "Based on your front photo and details"
-                      : "Based on your basic details"}
+                  {measurements
+                    ? (measurements.method === "ellipse"
+                        ? "Based on your front + side photos (ellipse)"
+                        : "Based on your front photo + body shape estimate")
+                    : "Based on your basic details"}
                 </div>
                 <span className={`st-accuracy-badge ${getPhotoSetupQuality()}`}>
                   {getPhotoSetupQuality() === "high" && "Photo setup · Excellent"}
@@ -1450,32 +1626,100 @@ export default function SizeTapeCalculator() {
                 </div>
                 <div className="st-result-card">
                   <label className="st-label">Photo-based estimate</label>
-                  <div className="val">{waistSize || "—"}</div>
+                  <div className="val">{finalSize}</div>
                 </div>
-                <div className="st-result-card">
-                  <label className="st-label">Estimated waist</label>
-                  <div className="val">{waistCm ? waistCm.toFixed(1) + " cm" : "—"}</div>
-                </div>
-                <div className="st-result-card">
-                  <label className="st-label">Photos used</label>
-                  <div className="val" style={{ fontSize: 14 }}>
-                    {measurementMethod === "ellipse" ? "Front + side" : "Front only"}
-                  </div>
-                </div>
-              </div>
-              
-              {/* Optional details stay out of the primary user journey. */}
-              {(frontWidthCm || sideDepthCm) && (
-                <details className="st-measure-details">
-                  <summary>View measurement details</summary>
-                  <div className="st-result-grid" style={{ margin: 0, padding: "0 14px 14px" }}>
+                {measurements && (
+                  <>
                     <div className="st-result-card">
-                      <label className="st-label">Front measurement</label>
-                      <div className="val">{frontWidthCm ? frontWidthCm.toFixed(1) + " cm" : "—"}</div>
+                      <label className="st-label">Estimated waist</label>
+                      <div className="val with-unc">
+                        {measurements.waistCm.toFixed(1)} cm
+                        {measurements.waistUncertaintyCm > 0 && (
+                          <span className="unc"> ±{measurements.waistUncertaintyCm.toFixed(1)}</span>
+                        )}
+                      </div>
                     </div>
                     <div className="st-result-card">
-                      <label className="st-label">Side measurement</label>
-                      <div className="val">{sideDepthCm ? sideDepthCm.toFixed(1) + " cm" : "—"}</div>
+                      <label className="st-label">Body type</label>
+                      <div className="val" style={{ fontSize: 16, textTransform: "capitalize" }}>
+                        {measurements.somatotype}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Confidence sub-scores (NEW §5.1) */}
+              {measurements && (
+                <div className="st-sub-scores">
+                  <div className="st-sub-score">
+                    <span className="lbl">Pose</span>
+                    <div className="bar"><div className="fill" style={{ width: `${measurements.confidence.pose}%`, background: "var(--sage)" }} /></div>
+                    <span className="num">{Math.round(measurements.confidence.pose)}</span>
+                  </div>
+                  <div className="st-sub-score">
+                    <span className="lbl">Scale</span>
+                    <div className="bar"><div className="fill" style={{ width: `${measurements.confidence.scale}%`, background: "var(--blue)" }} /></div>
+                    <span className="num">{Math.round(measurements.confidence.scale)}</span>
+                  </div>
+                  <div className="st-sub-score">
+                    <span className="lbl">Image</span>
+                    <div className="bar"><div className="fill" style={{ width: `${measurements.confidence.image}%`, background: "var(--brass)" }} /></div>
+                    <span className="num">{Math.round(measurements.confidence.image)}</span>
+                  </div>
+                  <div className="st-sub-score">
+                    <span className="lbl">Plausibility</span>
+                    <div className="bar"><div className="fill" style={{ width: `${measurements.confidence.plausibility}%`, background: "var(--ink)" }} /></div>
+                    <span className="num">{Math.round(measurements.confidence.plausibility)}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Detailed measurements (NEW §4.3) */}
+              {measurements && (
+                <details className="st-measure-details">
+                  <summary>View full body measurements</summary>
+                  <div className="st-result-grid" style={{ margin: 0, padding: "0 14px 14px" }}>
+                    <div className="st-result-card">
+                      <label className="st-label">Waist</label>
+                      <div className="val with-unc">
+                        {measurements.waistCm.toFixed(1)} cm
+                        <span className="unc"> ±{measurements.waistUncertaintyCm.toFixed(1)}</span>
+                      </div>
+                    </div>
+                    <div className="st-result-card">
+                      <label className="st-label">Chest</label>
+                      <div className="val with-unc">
+                        {measurements.chestCm.toFixed(1)} cm
+                        <span className="unc"> ±{measurements.chestUncertaintyCm.toFixed(1)}</span>
+                      </div>
+                    </div>
+                    <div className="st-result-card">
+                      <label className="st-label">Hip</label>
+                      <div className="val with-unc">
+                        {measurements.hipCm.toFixed(1)} cm
+                        <span className="unc"> ±{measurements.hipUncertaintyCm.toFixed(1)}</span>
+                      </div>
+                    </div>
+                    <div className="st-result-card">
+                      <label className="st-label">Inseam</label>
+                      <div className="val with-unc">
+                        {measurements.inseamCm.toFixed(1)} cm
+                        <span className="unc"> ±{measurements.inseamUncertaintyCm.toFixed(1)}</span>
+                      </div>
+                    </div>
+                    <div className="st-result-card">
+                      <label className="st-label">Shoulder width</label>
+                      <div className="val with-unc">
+                        {measurements.shoulderW.toFixed(1)} cm
+                        <span className="unc"> ±{measurements.shoulderUncertaintyCm.toFixed(1)}</span>
+                      </div>
+                    </div>
+                    <div className="st-result-card">
+                      <label className="st-label">Method</label>
+                      <div className="val" style={{ fontSize: 14 }}>
+                        {measurements.method === "ellipse" ? "Front + side (ellipse)" : "Front only (shape)"}
+                      </div>
                     </div>
                   </div>
                 </details>
@@ -1484,25 +1728,43 @@ export default function SizeTapeCalculator() {
               {flagType && (
                 <div className={`st-flag ${flagType}`}>{flagText}</div>
               )}
-              
+
               <div className="st-result-note">
                 <strong>Fit note:</strong> This is a photo-based estimate. Fit may vary by brand, fabric, and style, so check the brand's size chart before ordering.
               </div>
 
+              {/* History (NEW §7.4) */}
+              {history.length > 0 && (
+                <details className="st-history">
+                  <summary>Recent measurements ({history.length})</summary>
+                  {history.map((h) => (
+                    <div key={h.ts} className="item">
+                      <span>{new Date(h.ts).toLocaleString()}</span>
+                      <span>{h.size} · {h.waistCm.toFixed(1)} cm · {h.source}</span>
+                    </div>
+                  ))}
+                </details>
+              )}
+
               {/* Size chart */}
-              {heightCm > 0 && (
+              {heightCm > 0 && chartRows.length > 0 && (
                 <table className="st-sizechart">
                   <thead>
-                    <tr><th>Size</th><th>Waist range for your height (cm)</th></tr>
+                    <tr>
+                      <th>Size</th>
+                      <th>{garment === "bottom" ? "Waist" : "Chest"} range for your height ({garment === "bottom" ? "cm" : "cm"})</th>
+                    </tr>
                   </thead>
                   <tbody>
-                    {chartRows.map(([s, lo, hi]) => {
-                      const loStr = (lo * heightCm).toFixed(0);
-                      const hiStr = (hi * heightCm).toFixed(0);
-                      const label = lo === 0 ? `up to ${hiStr}` : `${loStr}–${hiStr}`;
+                    {chartRows.map((row) => {
+                      const [lo, hi] = waistRangeForSize(
+                        { rows: chartRows, pick: () => row.size },
+                        row.size, heightCm
+                      );
+                      const label = lo === 0 ? `up to ${hi}` : `${lo}–${hi}`;
                       return (
-                        <tr key={s} className={`st-size-row ${s === finalSize ? "hit" : ""}`}>
-                          <td>{s}</td><td>{label}</td>
+                        <tr key={row.size} className={`st-size-row ${row.size === finalSize ? "hit" : ""}`}>
+                          <td>{row.size}</td><td>{label}</td>
                         </tr>
                       );
                     })}
@@ -1526,4 +1788,20 @@ export default function SizeTapeCalculator() {
       </div>
     </>
   );
+}
+
+function initialPhotoState(): PhotoState {
+  return {
+    src: null,
+    confidence: 0,
+    leftX: 0.32, rightX: 0.68,
+    waistY: 0.55, topY: 0.06, bottomY: 0.97,
+    autoDetected: false,
+    keypoints: [],
+    keypointAvg: 0,
+    imageW: 0, imageH: 0,
+    imageQuality: null,
+    silhouette: null,
+    userAdjustedWaist: false,
+  };
 }
