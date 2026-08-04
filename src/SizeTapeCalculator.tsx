@@ -25,7 +25,7 @@ import {
 import {
   gateKeypoints, validateOrientation,
   checkPhotoAcceptance, imageQuality,
-  detectMirrorFlip, type ImageQuality,
+  type ImageQuality,
 } from "./utils/imageAnalysis";
 import { agreementConfidence } from "./utils/confidence";
 import {
@@ -335,6 +335,10 @@ export default function SizeTapeCalculator() {
 
   // Card calibration state
   const [cardRect, setCardRect] = useState<CardCalibrationState>({ x: 0.4, y: 0.7, w: 0.2, h: 0.2 * CARD_ASPECT });
+  /* Only trust the card rectangle as a scale reference once the user has
+     actually touched it — otherwise the default overlay position would be
+     treated as a real card (weight 1.0, overriding the height reference). */
+  const [cardTouched, setCardTouched] = useState(false);
 
   const [showInstructions, setShowInstructions] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -357,10 +361,8 @@ export default function SizeTapeCalculator() {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
 
   /* ── Model ── */
-  const poseWorker = useWorkerDetector();
+  const poseWorker = useWorkerDetector(poseModel);
   const seg = useSegmenter();
-  const detectorRef = useRef<typeof poseWorker.detect | null>(null);
-  detectorRef.current = poseWorker.detect;
 
   /* ── DOM refs ── */
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -438,9 +440,16 @@ export default function SizeTapeCalculator() {
         ...initialPhotoState(),
         src,
       };
-      if (type === "front") setFront(next);
-      else setSide(next);
+      if (type === "front") {
+        setFront(next);
+        setCardTouched(false); // new photo → old card position no longer applies
+      } else {
+        setSide(next);
+      }
       setActivePhotoType(type);
+      // Fresh upload: clear the detection marker so the new photo is always
+      // auto-detected, even if it happens to be the same file as before.
+      detectedSrcRef.current[type] = null;
       setShowInstructions(false);
       setShowConfirm(false);
       setDetectBanner(null);
@@ -469,9 +478,7 @@ export default function SizeTapeCalculator() {
     }
 
     try {
-      // §1.4 mirror-flip detection
       const { keypoints: rawKps, averageScore } = await poseWorker.detect(imgEl);
-      const mirrorFlipped = detectMirrorFlip(rawKps);
 
       // Convert: keypoint names are guaranteed by the model.
       const kp: Record<string, KeypointWithNoise> = {};
@@ -493,7 +500,11 @@ export default function SizeTapeCalculator() {
           type: "warn",
         });
         const cur = type === "front" ? front : side;
-        const next: PhotoState = { ...cur, keypoints: rawKps, keypointAvg: averageScore, autoDetected: false };
+        const next: PhotoState = {
+          ...cur, keypoints: rawKps, keypointAvg: averageScore,
+          imageW: imgEl.naturalWidth, imageH: imgEl.naturalHeight,
+          autoDetected: false,
+        };
         if (type === "front") setFront(next); else setSide(next);
         finishDetectUI(false);
         return;
@@ -513,7 +524,11 @@ export default function SizeTapeCalculator() {
           type: "warn",
         });
         const cur = type === "front" ? front : side;
-        const next: PhotoState = { ...cur, keypoints: rawKps, keypointAvg: averageScore, autoDetected: false };
+        const next: PhotoState = {
+          ...cur, keypoints: rawKps, keypointAvg: averageScore,
+          imageW: imgEl.naturalWidth, imageH: imgEl.naturalHeight,
+          autoDetected: false,
+        };
         if (type === "front") setFront(next); else setSide(next);
         finishDetectUI(false);
         return;
@@ -526,7 +541,11 @@ export default function SizeTapeCalculator() {
         setDetectBanner({ text: accept.reason ?? "Photo unsuitable", type: "warn" });
         setWarnings([accept.instruction ?? ""].filter(Boolean));
         const cur = type === "front" ? front : side;
-        const next: PhotoState = { ...cur, keypoints: rawKps, keypointAvg: averageScore, autoDetected: false };
+        const next: PhotoState = {
+          ...cur, keypoints: rawKps, keypointAvg: averageScore,
+          imageW: imgEl.naturalWidth, imageH: imgEl.naturalHeight,
+          autoDetected: false,
+        };
         if (type === "front") setFront(next); else setSide(next);
         finishDetectUI(false);
         return;
@@ -614,14 +633,18 @@ export default function SizeTapeCalculator() {
           ? "photo quality looks good"
           : "please review the guides";
       setDetectBanner({
-        text: `Photo ready — ${qualityText}${mirrorFlipped ? " (auto-unmirrored)" : ""}`,
+        text: `Photo ready — ${qualityText}`,
         type: averageScore >= 50 ? "success" : "warn",
       });
       setWarnings(iqWarnings);
       finishDetectUI(true);
     } catch {
       const cur = type === "front" ? front : side;
-      const next: PhotoState = { ...cur, autoDetected: false };
+      const next: PhotoState = {
+        ...cur,
+        imageW: imgEl.naturalWidth, imageH: imgEl.naturalHeight,
+        autoDetected: false,
+      };
       if (type === "front") setFront(next); else setSide(next);
       setDetectBanner({
         text: "We could not detect the full body clearly — position the waist guide manually",
@@ -788,14 +811,14 @@ export default function SizeTapeCalculator() {
     const fy = Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height));
     const h = draggingRef.current;
     if (activePhotoType === "front") {
-      if (h === "L") updateActive({ leftX: Math.min(fx, front.rightX - 0.02) });
-      if (h === "R") updateActive({ rightX: Math.max(fx, front.leftX + 0.02) });
+      if (h === "L") updateActive({ leftX: Math.min(fx, front.rightX - 0.02), userAdjustedWaist: true });
+      if (h === "R") updateActive({ rightX: Math.max(fx, front.leftX + 0.02), userAdjustedWaist: true });
       if (h === "Y") updateActive({ waistY: fy, userAdjustedWaist: true });
       if (h === "T") updateActive({ topY: Math.min(fy, front.bottomY - 0.05) });
       if (h === "B") updateActive({ bottomY: Math.max(fy, front.topY + 0.05) });
     } else {
-      if (h === "L") updateActive({ leftX: Math.min(fx, side.rightX - 0.02) });
-      if (h === "R") updateActive({ rightX: Math.max(fx, side.leftX + 0.02) });
+      if (h === "L") updateActive({ leftX: Math.min(fx, side.rightX - 0.02), userAdjustedWaist: true });
+      if (h === "R") updateActive({ rightX: Math.max(fx, side.leftX + 0.02), userAdjustedWaist: true });
       if (h === "Y") updateActive({ waistY: fy, userAdjustedWaist: true });
       if (h === "T") updateActive({ topY: Math.min(fy, side.bottomY - 0.05) });
       if (h === "B") updateActive({ bottomY: Math.max(fy, side.topY + 0.05) });
@@ -808,6 +831,7 @@ export default function SizeTapeCalculator() {
   function handleCardPointerDown(e: ReactPointerEvent, edge: string) {
     e.preventDefault(); e.stopPropagation();
     setCardDragging(edge);
+    setCardTouched(true);
   }
   function handleCardPointerMove(e: ReactPointerEvent<SVGSVGElement>) {
     if (!cardDragging || !imgRef.current) return;
@@ -832,7 +856,7 @@ export default function SizeTapeCalculator() {
   function buildCalibration(): { front: CalibrationEstimate; side: CalibrationEstimate } {
     const heightCm = parseFloat(heightVal) || 0;
     const refsF: CalibrationInput[] = [];
-    if (calibrationMethod === "card" && front.imageW > 0) {
+    if (calibrationMethod === "card" && cardTouched && front.imageW > 0) {
       const cardPixelWidth = cardRect.w * front.imageW;
       refsF.push({ method: "card", pxLength: cardPixelWidth, cmLength: CARD_WIDTH_CM });
     }
@@ -906,7 +930,11 @@ export default function SizeTapeCalculator() {
       sideCal,
     });
     if (!m) {
-      alert("Could not compute a measurement. Please check that your photos are correctly positioned.");
+      alert(
+        front.src
+          ? "Could not compute a measurement. Please check your height in Step 1, or fill in \"Already know your waist?\" to skip the photo measurement."
+          : "Could not compute a measurement. Please add a front photo, or fill in \"Already know your waist?\" in Step 1."
+      );
       return;
     }
     // §3.7 plausibility check
@@ -924,6 +952,7 @@ export default function SizeTapeCalculator() {
   }
 
   /* Recompute recommendations whenever measurements / fit / region / brand change. */
+  const lastHistorySigRef = useRef<string>("");
   useEffect(() => {
     if (!measurements || !gender) { setRecommendations(null); return; }
     const heightCm = parseFloat(heightVal) || 0;
@@ -934,12 +963,18 @@ export default function SizeTapeCalculator() {
     setRecommendations(recs);
     if (recs && measurements) {
       const size = (recs as unknown as Record<GarmentClass, SizeStr>)[garment];
-      saveHistory({
-        ts: Date.now(),
-        size,
-        waistCm: measurements.waistCm,
-        source: recs.source,
-      });
+      // Save history only when the result actually changed — otherwise every
+      // garment-tab click or height keystroke would flood the log.
+      const sig = `${size}|${measurements.waistCm.toFixed(1)}|${recs.source}`;
+      if (sig !== lastHistorySigRef.current) {
+        lastHistorySigRef.current = sig;
+        saveHistory({
+          ts: Date.now(),
+          size,
+          waistCm: measurements.waistCm,
+          source: recs.source,
+        });
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [measurements, gender, heightVal, fit, region, brand, garment]);
@@ -948,6 +983,8 @@ export default function SizeTapeCalculator() {
   function retake(type: PhotoType) {
     if (type === "front") setFront(initialPhotoState());
     else setSide(initialPhotoState());
+    detectedSrcRef.current[type] = null;
+    if (type === "front") setCardTouched(false);
     setShowConfirm(false); setShowInstructions(false); setDetectBanner(null);
     setWarnings([]); resetZoom();
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -991,11 +1028,26 @@ export default function SizeTapeCalculator() {
   })();
 
   const [imgDim, setImgDim] = useState({ w: 0, h: 0 });
+  /* Tracks which photo src has already been auto-detected, so switching
+     between the front/side tabs doesn't re-run detection and wipe out
+     the user's manual guide adjustments. */
+  const detectedSrcRef = useRef<Record<PhotoType, string | null>>({ front: null, side: null });
   function onImgLoad() {
     const el = imgRef.current;
     if (el) {
       setImgDim({ w: el.clientWidth, h: el.clientHeight });
-      runDetection(activePhotoType);
+      // Record natural pixel dims immediately, before detection runs, so
+      // height-based calibration keeps working even if detection fails
+      // and the user positions the guides manually.
+      const cur = activePhotoType === "front" ? front : side;
+      if (el.naturalWidth > 0 && (cur.imageW !== el.naturalWidth || cur.imageH !== el.naturalHeight)) {
+        updateActive({ imageW: el.naturalWidth, imageH: el.naturalHeight });
+      }
+      // Only auto-detect a photo we haven't processed yet.
+      if (cur.src && detectedSrcRef.current[activePhotoType] !== cur.src) {
+        detectedSrcRef.current[activePhotoType] = cur.src;
+        runDetection(activePhotoType);
+      }
     }
   }
   useEffect(() => {
@@ -1159,7 +1211,7 @@ export default function SizeTapeCalculator() {
             If you fill this in, it will be used instead of the photo measurement.
           </p>
 
-          {/* NEW: pose model picker */}
+          {/* Pose model picker — wired to the worker; switching reloads the model */}
           <label className="st-label" style={{ marginTop: 14 }}>Pose detection model</label>
           <div className="st-gtoggle">
             <button
@@ -1167,14 +1219,14 @@ export default function SizeTapeCalculator() {
               className={`st-gbtn ${poseModel === "movenet-thunder" ? "active" : ""}`}
               onClick={() => setPoseModel("movenet-thunder")}
             >
-              MoveNet Thunder · default
+              MoveNet Thunder · accurate
             </button>
             <button
               type="button"
-              className={`st-gbtn ${poseModel === "blazepose" ? "active" : ""}`}
-              onClick={() => setPoseModel("blazepose")}
+              className={`st-gbtn ${poseModel === "movenet-lightning" ? "active" : ""}`}
+              onClick={() => setPoseModel("movenet-lightning")}
             >
-              BlazePose · 33 keypoints
+              MoveNet Lightning · faster
             </button>
           </div>
 
@@ -1612,11 +1664,15 @@ export default function SizeTapeCalculator() {
                         : "Based on your front photo + body shape estimate")
                     : "Based on your basic details"}
                 </div>
-                <span className={`st-accuracy-badge ${getPhotoSetupQuality()}`}>
-                  {getPhotoSetupQuality() === "high" && "Photo setup · Excellent"}
-                  {getPhotoSetupQuality() === "medium" && "Photo setup · Good"}
-                  {getPhotoSetupQuality() === "low" && "Photo setup · Basic"}
-                </span>
+                {measurements ? (
+                  <span className={`st-accuracy-badge ${getPhotoSetupQuality()}`}>
+                    {getPhotoSetupQuality() === "high" && "Photo setup · Excellent"}
+                    {getPhotoSetupQuality() === "medium" && "Photo setup · Good"}
+                    {getPhotoSetupQuality() === "low" && "Photo setup · Basic"}
+                  </span>
+                ) : (
+                  <span className="st-accuracy-badge medium">Details-based estimate</span>
+                )}
               </div>
 
               <div className="st-result-grid" style={{ marginTop: 18 }}>

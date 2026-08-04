@@ -74,8 +74,20 @@ self.addEventListener("message", async (e: MessageEvent<Req>) => {
       // Run detection
       const det = detector!;
       const poses = await det.estimatePoses(cnv as unknown as HTMLCanvasElement);
+      const rawKeypoints: PoseKeypoint[] = poses[0]?.keypoints ?? [];
+      // IMPORTANT: the detector ran on the downscaled canvas (≤640 px), so
+      // keypoints are in canvas pixel space. Rescale them back to the
+      // original image's pixel space — all downstream math (calibration,
+      // acceptance checks, guide placement) assumes natural pixels.
+      const scaleBack = cnv.width > 0 ? bitmap.width / cnv.width : 1;
       bitmap.close();
-      const keypoints: PoseKeypoint[] = poses[0]?.keypoints ?? [];
+      const keypoints: PoseKeypoint[] = scaleBack === 1
+        ? rawKeypoints
+        : rawKeypoints.map(k => ({
+            ...k,
+            x: k.x * scaleBack,
+            y: k.y * scaleBack,
+          }));
       const averageScore = keypoints.length === 0
         ? 0
         : (keypoints.reduce((s, k) => s + (k.score ?? 0), 0) / keypoints.length) * 100;
@@ -109,9 +121,12 @@ async function loadModel(model: string): Promise<void> {
     };
   }).poseDetection;
 
-  const variant = model === "movenet-thunder"
-    ? pd.movenet.modelType.SINGLEPOSE_THUNDER
-    : pd.movenet.modelType.SINGLEPOSE_LIGHTNING;
+  // The worker supports the two MoveNet variants; anything else (including
+  // the legacy "blazepose" kind, which is a main-thread-only model) falls
+  // back to Thunder rather than failing.
+  const variant = model === "movenet-lightning"
+    ? pd.movenet.modelType.SINGLEPOSE_LIGHTNING
+    : pd.movenet.modelType.SINGLEPOSE_THUNDER;
   detector = await pd.createDetector(pd.SupportedModels.MoveNet, { modelType: variant });
 }
 

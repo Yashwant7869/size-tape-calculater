@@ -4,7 +4,7 @@
 ───────────────────────────────────────────── */
 
 import { useEffect, useRef, useState } from "react";
-import type { PoseKeypoint } from "../utils/poseModel";
+import type { PoseKeypoint, PoseModelKind } from "../utils/poseModel";
 
 export interface WorkerDetectorState {
   ready: boolean;
@@ -12,7 +12,7 @@ export interface WorkerDetectorState {
   error: string | null;
 }
 
-export function useWorkerDetector() {
+export function useWorkerDetector(model: PoseModelKind = "movenet-thunder") {
   const [state, setState] = useState<WorkerDetectorState>({
     ready: false,
     status: "Preparing photo scanner…",
@@ -27,6 +27,7 @@ export function useWorkerDetector() {
       setState({ ready: false, status: "Photo scanner unavailable", error: "no worker support" });
       return;
     }
+    setState({ ready: false, status: "Preparing photo scanner…", error: null });
     try {
       const w = new Worker(
         new URL("../workers/poseWorker.ts", import.meta.url),
@@ -49,7 +50,7 @@ export function useWorkerDetector() {
           }
         }
       });
-      w.postMessage({ type: "init", model: "movenet-thunder" });
+      w.postMessage({ type: "init", model });
     } catch (err) {
       setState({
         ready: false,
@@ -60,8 +61,9 @@ export function useWorkerDetector() {
     return () => {
       workerRef.current?.terminate();
       workerRef.current = null;
+      callbacks.current.clear();
     };
-  }, []);
+  }, [model]);
 
   async function detect(image: HTMLImageElement | HTMLCanvasElement | HTMLVideoElement): Promise<{ keypoints: PoseKeypoint[]; averageScore: number }> {
     if (!workerRef.current) {

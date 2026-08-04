@@ -77,10 +77,24 @@ export function loadSegmenter(): Promise<Segmenter> {
         },
       };
       // Initialise by sending a 2×2 blank image to trigger model load.
+      // If the model/wasm can't be fetched (offline, blocked CDN), the
+      // probe never produces a result — resolve after a timeout anyway so
+      // callers aren't stuck on "Preparing…" forever (ready stays false).
       const probe = document.createElement("canvas");
       probe.width = 2; probe.height = 2;
-      seg.onResults(() => { ready.ready = true; resolve(ready); });
-      seg.send({ image: probe });
+      let settled = false;
+      seg.onResults(() => {
+        if (settled) return;
+        settled = true;
+        ready.ready = true;
+        resolve(ready);
+      });
+      seg.send({ image: probe }).catch(() => {/* handled by timeout */});
+      setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        resolve(ready); // ready.ready === false → degraded mode
+      }, 20000);
     });
   })();
   return segmenterPromise;

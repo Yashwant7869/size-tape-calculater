@@ -113,53 +113,83 @@ export function computeMeasurements(inputs: Inputs): Measurements | null {
   const sideCal = inputs.sideCal;
   if (frontCal.scaleCmPerPx <= 0) return null;
 
-  // 3. Keypoint sigmas (in pixels)
+  // 3. Keypoints (optional) — the on-screen guides can stand in when
+  //    auto-detection failed and the user positioned them manually.
   const byNameF: Record<string, KeypointWithNoise> = {};
   for (const k of front.keypoints) byNameF[k.name] = k;
   const ls = byNameF["left_shoulder"], rs = byNameF["right_shoulder"];
   const lh = byNameF["left_hip"],     rh = byNameF["right_hip"];
   const la = byNameF["left_ankle"],   ra = byNameF["right_ankle"];
+  const hasPose = !!(ls && rs && lh && rh);
 
-  if (!ls || !rs || !lh || !rh) return null;
-
-  // 4. Shoulder width
-  const shoulderWpx = Math.hypot(rs.x - ls.x, rs.y - ls.y);
-  const shoulderSigmaPx = pairWidthSigmaPx(ls, rs);
-  const shoulderW = shoulderWpx * frontCal.scaleCmPerPx;
-  const shoulderUnc = shoulderSigmaPx * frontCal.scaleCmPerPx;
-
-  // 5. Hip width (for WHR / somatotype)
-  const hipWpx = Math.hypot(rh.x - lh.x, rh.y - lh.y);
-  const hipW = hipWpx * frontCal.scaleCmPerPx;
-  const hipSigmaPx = pairWidthSigmaPx(lh, rh);
-  const hipUnc = hipSigmaPx * frontCal.scaleCmPerPx;
-
-  // 6. Waist width — silhouette preferred, keypoint fallback
+  // 4. Waist width — measure the on-screen guide (left/right handles).
+  //    On successful detection the guide is initialised from the
+  //    silhouette (or the keypoint baseline), so this equals the automatic
+  //    measurement unless the user dragged a handle — either way the
+  //    number matches what the user sees. Keypoint interpolation remains
+  //    as a fallback for callers that supply no guide positions.
+  const guideWpx = front.imageW > 0 && front.rightFrac > front.leftFrac
+    ? (front.rightFrac - front.leftFrac) * front.imageW
+    : 0;
   let waistWpx: number, waistWpxUnc: number;
-  if (front.silhouetteLeftFrac !== undefined && front.silhouetteRightFrac !== undefined) {
-    waistWpx = (front.silhouetteRightFrac - front.silhouetteLeftFrac) * front.imageW;
-    // Silhouette edge noise ≈ 3 px empirically.
-    waistWpxUnc = Math.sqrt(3 ** 2 * 2);
-  } else {
+  if (guideWpx > 0) {
+    waistWpx = guideWpx;
+    waistWpxUnc = hasPose || front.silhouetteLeftFrac !== undefined
+      ? 3 * Math.SQRT2   // auto-initialised guide ≈ silhouette edge noise
+      : 8 * Math.SQRT2;  // fully manual guide placement
+  } else if (ls && rs && lh && rh) {
     // Keypoint-based approximation: interpolate from shoulder/hip
-    const frac = 0.5; // midpoint
-    const wAtY = hipWpx + (shoulderWpx - hipWpx) * frac;
-    waistWpx = wAtY;
-    waistWpxUnc = Math.sqrt(hipSigmaPx ** 2 + shoulderSigmaPx ** 2);
+    const shoulderWpx = Math.hypot(rs.x - ls.x, rs.y - ls.y);
+    const hipWpx = Math.hypot(rh.x - lh.x, rh.y - lh.y);
+    waistWpx = hipWpx + (shoulderWpx - hipWpx) * 0.5;
+    waistWpxUnc = Math.sqrt(pairWidthSigmaPx(lh, rh) ** 2 + pairWidthSigmaPx(ls, rs) ** 2);
+  } else {
+    // No width signal at all (e.g. no photo data).
+    return null;
   }
   const frontW = waistWpx * frontCal.scaleCmPerPx;
   const frontWUnc = waistWpxUnc * frontCal.scaleCmPerPx;
+
+  // 5. Shoulder & hip width — keypoint-based when available, otherwise
+  //    population proportions around the measured waist.
+  let shoulderW: number, shoulderUnc: number;
+  let hipW: number, hipUnc: number;
+  if (ls && rs && lh && rh) {
+    const shoulderWpx = Math.hypot(rs.x - ls.x, rs.y - ls.y);
+    const shoulderSigmaPx = pairWidthSigmaPx(ls, rs);
+    shoulderW = shoulderWpx * frontCal.scaleCmPerPx;
+    shoulderUnc = shoulderSigmaPx * frontCal.scaleCmPerPx;
+    const hipWpx = Math.hypot(rh.x - lh.x, rh.y - lh.y);
+    const hipSigmaPx = pairWidthSigmaPx(lh, rh);
+    hipW = hipWpx * frontCal.scaleCmPerPx;
+    hipUnc = hipSigmaPx * frontCal.scaleCmPerPx;
+  } else {
+    // No pose keypoints: derive from the waist using the same ratios as
+    // buildManualOverrideResult (relative to waist circumference).
+    // depthRatio() is scale-invariant, so relative widths are enough to
+    // size the provisional circumference first.
+    const shRel = gender === "male" ? 0.78 : 0.72;
+    const hipRel = gender === "male" ? 1.08 : 1.18;
+    const waistProv = circumferenceFromWidth(frontW, shRel, hipRel);
+    shoulderW = waistProv * shRel;
+    shoulderUnc = waistProv * shRel * 0.12 + 2;
+    hipW = waistProv * hipRel;
+    hipUnc = waistProv * hipRel * 0.10 + 2;
+  }
 
   // 7. Circumference — ellipse if side photo available, else body-shape estimate
   let waistCm = 0, waistUncCm = 0, method: "ellipse" | "single";
   let frontDepthCm = 0;
   if (side && sideCal.scaleCmPerPx > 0) {
-    const byNameS: Record<string, KeypointWithNoise> = {};
-    for (const k of side.keypoints) byNameS[k.name] = k;
+    // Side depth: silhouette when available, otherwise the on-screen
+    // side-photo guide the user can position manually.
+    const sideGuidePx = side.imageW > 0 && side.rightFrac > side.leftFrac
+      ? (side.rightFrac - side.leftFrac) * side.imageW
+      : 0;
     const depthPx =
       side.silhouetteLeftFrac !== undefined && side.silhouetteRightFrac !== undefined
         ? (side.silhouetteRightFrac - side.silhouetteLeftFrac) * side.imageW
-        : 0;
+        : sideGuidePx;
     if (depthPx > 0) {
       frontDepthCm = depthPx * sideCal.scaleCmPerPx;
       const depthSigmaPx =
@@ -195,12 +225,16 @@ export function computeMeasurements(inputs: Inputs): Measurements | null {
 
   // 9. Inseam: ankle - hip keypoint vertical distance
   let inseamCm = 0, inseamUnc = 0;
-  if (la && ra) {
+  if (la && ra && lh && rh) {
     const ankleY = (la.y + ra.y) / 2;
     const hipY = (lh.y + rh.y) / 2;
     const inseamPx = ankleY - hipY;
     inseamCm = inseamPx * frontCal.scaleCmPerPx;
     inseamUnc = Math.sqrt(keypointSigmaPx(la) ** 2 + keypointSigmaPx(ra) ** 2) * frontCal.scaleCmPerPx + 0.5;
+  } else if (heightCm > 0) {
+    // No leg keypoints — population estimate from height.
+    inseamCm = heightCm * 0.45;
+    inseamUnc = heightCm * 0.03 + 2;
   }
 
   // 10. Somatotype
@@ -209,7 +243,9 @@ export function computeMeasurements(inputs: Inputs): Measurements | null {
   // 11. Confidence breakdown
   const plausibility = plausibilityCheckWaist(waistCm, heightCm, gender);
   const plausibilityScore = plausibility.ok ? 95 : 30;
-  const poseScore = front.keypointAvg;
+  // No keypoints → the measurement rests on the user's manual guide
+  // placement alone: degrade the pose score to reflect that honestly.
+  const poseScore = hasPose ? front.keypointAvg : 25;
   const scaleScore = frontCal.scaleCmPerPx > 0
     ? Math.max(0, 100 - (frontCal.varianceCmPerPx / Math.max(1e-6, frontCal.scaleCmPerPx)) * 100 * 5)
     : 50;
