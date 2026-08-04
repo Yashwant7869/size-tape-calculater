@@ -1,4 +1,16 @@
-# Changelog — accuracy improvements & garment sizing calibration
+# Changelog
+
+## 1.0.0 — npm publishing readiness
+
+- Reworked package metadata for npm with an English description, richer keywords, `publishConfig.access`, package manager metadata, and a `pack:check` script.
+- Updated the library build so the pose-detection Web Worker is emitted as `dist/poseWorker.js` and included in the npm tarball.
+- Bundled TensorFlow.js and MoveNet dependencies into the worker so published consumers do not get browser-unresolvable bare imports inside a module worker and do not need TensorFlow as runtime npm dependencies.
+- Trimmed npm package contents to the production files only: `dist`, `README.md`, `CHANGELOG.md`, `LICENSE`, and `package.json`.
+- Rewrote the README with install, React/Next.js usage, publish steps, package contents, runtime notes, and accuracy/privacy guidance.
+- Added worker load error/timeout handling so unsupported worker environments degrade gracefully instead of staying on a loading status.
+- Updated GitHub Actions notes to match the current `.github/workflows/` setup.
+
+## Accuracy improvements & garment sizing calibration
 
 ## Size chart calibration fixes (Bottoms, Tops, Outerwear, Dresses)
 
