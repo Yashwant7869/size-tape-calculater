@@ -137,7 +137,10 @@ const GLOBAL_CSS = `
   .st-upload-icon{width:38px;height:38px;margin:0 auto 9px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:var(--chalk);color:var(--ink);font-size:20px;font-weight:600;}
   .st-upload-zone strong{display:block;color:var(--ink);font-size:13px;}
   .st-upload-zone span{display:block;margin-top:4px;color:#8a8f9c;font-size:11px;}
-  .st-video{width:100%;border-radius:10px;margin-top:12px;background:#000;}
+  .st-video{width:100%;border-radius:10px;margin-top:12px;background:#000;min-height:180px;object-fit:cover;}
+  .st-camera-status{display:flex;align-items:center;gap:9px;margin-top:12px;padding:11px 13px;border-radius:9px;background:var(--chalk);color:#5b6478;font-size:12.5px;line-height:1.4;}
+  .st-camera-status.error{background:#faf1e8;color:#a5652a;}
+  .st-camera-status .st-spinner{border-color:currentColor;border-top-color:transparent;}
   .st-cam-controls{display:flex;gap:10px;margin-top:10px;}
   .st-photo-stage{position:relative;display:inline-block;max-width:100%;margin-top:16px;touch-action:none;overflow:hidden;border-radius:10px;background:#0000000d;}
   .st-zoom-wrap{position:relative;display:inline-block;transform-origin:center center;transition:transform .08s ease-out;}
@@ -261,6 +264,9 @@ export default function SizeTapeCalculator() {
   const [step2Locked, setStep2Locked] = useState(true);
   const [step3Locked, setStep3Locked] = useState(true);
   const [camActive, setCamActive] = useState(false);
+  const [cameraStarting, setCameraStarting] = useState(false);
+  const [cameraReady, setCameraReady] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
   const [activePhotoType, setActivePhotoType] = useState<PhotoType>("front");
   
   // Front photo state
@@ -315,6 +321,7 @@ export default function SizeTapeCalculator() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const camStreamRef = useRef<MediaStream | null>(null);
+  const cameraRequestRef = useRef(0);
   const imgRef = useRef<HTMLImageElement>(null);
 
   /* ── Inject global styles & scripts ── */
@@ -542,26 +549,150 @@ export default function SizeTapeCalculator() {
   }
 
   /* ─── Camera ─── */
+  function stopStream(stream: MediaStream | null) {
+    stream?.getTracks().forEach(track => track.stop());
+  }
+
+  function cameraErrorMessage(error: unknown): string {
+    const name = typeof error === "object" && error !== null && "name" in error
+      ? String((error as { name?: unknown }).name)
+      : "";
+
+    if (name === "NotAllowedError" || name === "SecurityError") {
+      return "Camera permission is blocked. Allow camera access in your browser settings, then try again.";
+    }
+    if (name === "NotFoundError" || name === "DevicesNotFoundError") {
+      return "No camera was found. Connect a camera or upload a photo from your gallery instead.";
+    }
+    if (name === "NotReadableError" || name === "TrackStartError") {
+      return "Your camera is being used by another app or browser tab. Close it and try again.";
+    }
+    if (name === "OverconstrainedError" || name === "ConstraintNotSatisfiedError") {
+      return "This camera mode is not available on your device. Try again to use another camera.";
+    }
+    return "We could not open the camera. Please try again or upload a photo from your gallery.";
+  }
+
   async function startCamera() {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-      camStreamRef.current = stream;
-      if (videoRef.current) { videoRef.current.srcObject = stream; }
-      setCamActive(true);
-    } catch { alert("Camera access was not available. Please upload a photo instead."); }
-  }
-  function stopCamera() {
-    camStreamRef.current?.getTracks().forEach(t => t.stop());
+    if (cameraStarting || camActive) return;
+
+    if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+      setCameraError("Camera access requires a secure HTTPS connection. Open this page over HTTPS and try again.");
+      return;
+    }
+
+    const requestId = ++cameraRequestRef.current;
+    setCameraStarting(true);
+    setCameraReady(false);
+    setCameraError(null);
+
+    // A previous stream can keep the camera busy on some mobile browsers.
+    stopStream(camStreamRef.current);
     camStreamRef.current = null;
+
+    try {
+      // `ideal` asks for the rear camera without rejecting devices that only have a front webcam.
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: {
+          facingMode: { ideal: "environment" },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+      });
+
+      // The request may finish after the user cancels or the component unmounts.
+      if (cameraRequestRef.current !== requestId) {
+        stopStream(stream);
+        return;
+      }
+
+      camStreamRef.current = stream;
+      setCamActive(true);
+    } catch (error) {
+      if (cameraRequestRef.current === requestId) {
+        setCameraError(cameraErrorMessage(error));
+        setCamActive(false);
+      }
+    } finally {
+      if (cameraRequestRef.current === requestId) setCameraStarting(false);
+    }
+  }
+
+  function stopCamera() {
+    // Invalidate an in-flight permission request as well as the active stream.
+    cameraRequestRef.current++;
+    stopStream(camStreamRef.current);
+    camStreamRef.current = null;
+    if (videoRef.current) {
+      videoRef.current.pause();
+      videoRef.current.srcObject = null;
+    }
     setCamActive(false);
+    setCameraStarting(false);
+    setCameraReady(false);
   }
+
   function capturePhoto() {
-    const v = videoRef.current!;
-    const c = document.createElement("canvas");
-    c.width = v.videoWidth; c.height = v.videoHeight;
-    c.getContext("2d")!.drawImage(v, 0, 0);
-    c.toBlob(blob => { if (blob) { loadImageFile(blob, activePhotoType); stopCamera(); } }, "image/jpeg", 0.92);
+    const video = videoRef.current;
+    if (!video || !cameraReady || !video.videoWidth || !video.videoHeight) {
+      setCameraError("Camera preview is still starting. Wait a moment, then take the photo.");
+      return;
+    }
+
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const context = canvas.getContext("2d");
+    if (!context) {
+      setCameraError("We could not prepare the photo. Please try again.");
+      return;
+    }
+
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob(blob => {
+      if (blob) {
+        loadImageFile(blob, activePhotoType);
+        stopCamera();
+      } else {
+        setCameraError("We could not capture the photo. Please try again.");
+      }
+    }, "image/jpeg", 0.92);
   }
+
+  // The video element is rendered only after camera state changes. Attach the stream in an
+  // effect so it is not lost while the video ref is still null during `startCamera`.
+  useEffect(() => {
+    if (!camActive || !videoRef.current || !camStreamRef.current) return;
+
+    const video = videoRef.current;
+    const stream = camStreamRef.current;
+    const onMetadata = () => {
+      if (video.videoWidth > 0 && video.videoHeight > 0) setCameraReady(true);
+      void video.play().catch(() => {
+        setCameraError("Camera preview could not start. Close it and try again.");
+      });
+    };
+
+    video.addEventListener("loadedmetadata", onMetadata);
+    video.srcObject = stream;
+    if (video.readyState >= HTMLMediaElement.HAVE_METADATA) onMetadata();
+
+    return () => {
+      video.removeEventListener("loadedmetadata", onMetadata);
+      if (video.srcObject === stream) {
+        video.pause();
+        video.srcObject = null;
+      }
+    };
+  }, [camActive]);
+
+  // Always release the hardware camera if the component is removed from the page.
+  useEffect(() => () => {
+    cameraRequestRef.current++;
+    stopStream(camStreamRef.current);
+    camStreamRef.current = null;
+  }, []);
 
   /* ─── Overlay SVG dragging ─── */
   const handlePointerDown = useCallback((e: ReactPointerEvent, handle: string) => {
@@ -963,9 +1094,19 @@ export default function SizeTapeCalculator() {
                 <div
                   className="st-upload-zone"
                   role="button"
-                  tabIndex={0}
-                  onClick={() => fileInputRef.current?.click()}
-                  onKeyDown={e => { if (e.key === "Enter" || e.key === " ") fileInputRef.current?.click(); }}
+                  tabIndex={cameraStarting ? -1 : 0}
+                  aria-disabled={cameraStarting}
+                  onClick={() => {
+                    if (cameraStarting) return;
+                    setCameraError(null);
+                    fileInputRef.current?.click();
+                  }}
+                  onKeyDown={e => {
+                    if (cameraStarting || (e.key !== "Enter" && e.key !== " ")) return;
+                    e.preventDefault();
+                    setCameraError(null);
+                    fileInputRef.current?.click();
+                  }}
                 >
                   <div className="st-upload-icon" aria-hidden="true">↑</div>
                   <strong>Upload from gallery</strong>
@@ -974,30 +1115,78 @@ export default function SizeTapeCalculator() {
                 <div
                   className="st-upload-zone"
                   role="button"
-                  tabIndex={0}
-                  onClick={startCamera}
-                  onKeyDown={e => { if (e.key === "Enter" || e.key === " ") startCamera(); }}
+                  tabIndex={cameraStarting ? -1 : 0}
+                  aria-disabled={cameraStarting}
+                  onClick={() => { void startCamera(); }}
+                  onKeyDown={e => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      void startCamera();
+                    }
+                  }}
                 >
                   <div className="st-upload-icon" aria-hidden="true">◎</div>
-                  <strong>Take a photo</strong>
-                  <span>Use your camera now</span>
+                  <strong>{cameraStarting ? "Opening camera…" : "Take a photo"}</strong>
+                  <span>{cameraStarting ? "Allow camera access if your browser asks" : "Use your camera now"}</span>
                 </div>
               </div>
               <div className="st-privacy-strip">
                 <span className="st-pill-icon" aria-hidden="true">✓</span>
                 <span><strong>Your photo is private</strong>It is processed on this device and is never uploaded or stored.</span>
               </div>
+              {cameraStarting && (
+                <div className="st-camera-status" role="status">
+                  <div className="st-spinner" aria-hidden="true" />
+                  <span>Opening your camera. Allow access in your browser if prompted.</span>
+                </div>
+              )}
+              {cameraError && (
+                <div className="st-camera-status error" role="alert">
+                  <span aria-hidden="true">⚠️</span>
+                  <span>{cameraError}</span>
+                </div>
+              )}
             </>
           )}
 
           <input ref={fileInputRef} type="file" accept="image/*" style={{ display: "none" }}
-            onChange={e => { const f = e.target.files?.[0]; if (f) loadImageFile(f, activePhotoType); }} />
+            onChange={e => {
+              const file = e.target.files?.[0];
+              if (file) {
+                setCameraError(null);
+                loadImageFile(file, activePhotoType);
+              }
+            }} />
 
           {camActive && (
             <>
-              <video ref={videoRef} className="st-video" autoPlay playsInline />
+              <video
+                ref={videoRef}
+                className="st-video"
+                autoPlay
+                muted
+                playsInline
+                onLoadedMetadata={() => {
+                  const video = videoRef.current;
+                  if (video && video.videoWidth > 0 && video.videoHeight > 0) setCameraReady(true);
+                }}
+              />
+              {!cameraReady && (
+                <div className="st-camera-status" role="status">
+                  <div className="st-spinner" aria-hidden="true" />
+                  <span>Starting camera preview…</span>
+                </div>
+              )}
+              {cameraError && (
+                <div className="st-camera-status error" role="alert">
+                  <span aria-hidden="true">⚠️</span>
+                  <span>{cameraError}</span>
+                </div>
+              )}
               <div className="st-cam-controls">
-                <button className="st-btn" onClick={capturePhoto}>Take {activePhotoType === "front" ? "front" : "side"} photo</button>
+                <button className="st-btn" onClick={capturePhoto} disabled={!cameraReady}>
+                  Take {activePhotoType === "front" ? "front" : "side"} photo
+                </button>
                 <button className="st-btn secondary" onClick={stopCamera}>Cancel</button>
               </div>
             </>
