@@ -81,16 +81,32 @@ const GLOBAL_CSS = `
   }
   *{box-sizing:border-box;}
   body{margin:0;background:var(--paper);color:var(--ink);font-family:'Inter',sans-serif;padding:0 0 60px;}
-  .st-wrap{max-width:820px;margin:0 auto;padding:32px 20px 0;}
-  .st-tape{height:34px;background:repeating-linear-gradient(90deg,var(--ink) 0 2px,transparent 2px 20px);opacity:.15;margin-bottom:-6px;}
-  .st-header{padding:10px 0 26px;border-bottom:2px dashed var(--line);}
-  .st-eyebrow{font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--brass);margin:0 0 6px;}
-  .st-h1{font-family:'Fraunces',serif;font-weight:600;font-size:clamp(28px,5vw,40px);margin:0 0 8px;line-height:1.05;}
-  .st-header p{margin:0;color:#5b6478;font-size:15px;max-width:56ch;}
-  .st-pill{display:inline-flex;align-items:center;gap:7px;margin-top:14px;padding:6px 12px;border-radius:20px;background:var(--chalk);font-size:12.5px;font-family:'IBM Plex Mono',monospace;}
+  button,input{font:inherit;}
+  button:focus-visible,input:focus-visible,summary:focus-visible{outline:3px solid rgba(59,130,246,.28);outline-offset:3px;}
+  .st-wrap{max-width:860px;margin:0 auto;padding:28px 20px 0;}
+  .st-tape{height:8px;background:linear-gradient(90deg,var(--ink),var(--brass),var(--stitch));}
+  .st-header{position:relative;overflow:hidden;padding:38px;border:1px solid var(--line);border-radius:20px;background:linear-gradient(145deg,#fff 0%,#f8f3e9 100%);box-shadow:0 18px 50px rgba(27,42,74,.08);}
+  .st-header:after{content:"";position:absolute;width:240px;height:240px;border:46px solid rgba(176,141,87,.08);border-radius:50%;right:-105px;top:-130px;pointer-events:none;z-index:0;}
+  .st-header > *{position:relative;z-index:1;}
+  .st-eyebrow{font-family:'IBM Plex Mono',monospace;font-size:11.5px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--brass);margin:0 0 9px;}
+  .st-h1{font-family:'Fraunces',serif;font-weight:600;font-size:clamp(34px,6vw,50px);margin:0 0 12px;line-height:1.05;max-width:650px;letter-spacing:-.02em;}
+  .st-header-copy{margin:0;color:#5b6478;font-size:16px;line-height:1.65;max-width:62ch;position:relative;z-index:1;}
+  .st-hero-actions{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:24px;position:relative;z-index:1;}
+  .st-hero-btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;border:0;border-radius:10px;padding:13px 19px;background:var(--ink);color:#fff;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 8px 20px rgba(27,42,74,.16);transition:transform .15s,box-shadow .15s;}
+  .st-hero-btn:hover{transform:translateY(-1px);box-shadow:0 11px 24px rgba(27,42,74,.2);}
+  .st-time-note{font-size:12.5px;color:#6f7787;font-weight:600;}
+  .st-trust-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:20px;position:relative;z-index:1;}
+  .st-pill{display:inline-flex;align-items:center;gap:7px;padding:7px 11px;border:1px solid rgba(122,139,111,.2);border-radius:20px;background:#eef3ea;color:#55654c;font-size:11.5px;font-weight:600;}
+  .st-pill.status{border-color:var(--line);background:rgba(255,255,255,.72);color:#707887;font-weight:500;}
+  .st-pill-icon{width:18px;height:18px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:#dce8d5;font-size:11px;font-weight:800;}
   .st-dot{width:7px;height:7px;border-radius:50%;background:#c9c2ac;flex-shrink:0;}
   .st-dot.ready{background:var(--sage);}
   .st-dot.busy{background:var(--brass);animation:st-pulse 1s infinite;}
+  .st-quick-flow{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;margin-top:24px;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--line);position:relative;z-index:1;}
+  .st-flow-item{display:flex;align-items:center;gap:10px;padding:12px 14px;background:rgba(255,255,255,.82);}
+  .st-flow-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex:0 0 auto;background:var(--chalk);color:var(--ink);font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;}
+  .st-flow-item strong{display:block;font-size:12.5px;line-height:1.25;}
+  .st-flow-item small{display:block;margin-top:2px;color:#858c99;font-size:10.5px;}
   @keyframes st-pulse{0%,100%{opacity:1}50%{opacity:.3}}
   .st-step{margin-top:28px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:24px;position:relative;transition:opacity .2s;}
   .st-step.locked{opacity:.45;pointer-events:none;}
@@ -115,10 +131,12 @@ const GLOBAL_CSS = `
   .st-baseline{margin-top:16px;padding:14px 16px;background:var(--chalk);border-radius:10px;font-family:'IBM Plex Mono',monospace;font-size:13.5px;}
   .st-baseline b{font-family:'Fraunces',serif;font-size:17px;}
   .st-upload-choices{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-  .st-upload-zone{border:2px dashed var(--line);border-radius:12px;padding:22px 14px;text-align:center;cursor:pointer;transition:.15s;}
-  .st-upload-zone:hover{border-color:var(--brass);}
+  .st-upload-zone{border:1.5px dashed #bfc6d1;border-radius:12px;padding:22px 14px;text-align:center;cursor:pointer;background:#fff;transition:border-color .15s,background .15s,transform .15s;}
+  .st-upload-zone:hover{border-color:var(--brass);background:#fffcf7;transform:translateY(-1px);}
   .st-upload-zone.active{border-color:var(--sage);background:rgba(122,139,111,0.08);}
-  .st-upload-zone p{margin:8px 0 0;font-size:13px;color:#8a8f9c;}
+  .st-upload-icon{width:38px;height:38px;margin:0 auto 9px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:var(--chalk);color:var(--ink);font-size:20px;font-weight:600;}
+  .st-upload-zone strong{display:block;color:var(--ink);font-size:13px;}
+  .st-upload-zone span{display:block;margin-top:4px;color:#8a8f9c;font-size:11px;}
   .st-video{width:100%;border-radius:10px;margin-top:12px;background:#000;}
   .st-cam-controls{display:flex;gap:10px;margin-top:10px;}
   .st-photo-stage{position:relative;display:inline-block;max-width:100%;margin-top:16px;touch-action:none;overflow:hidden;border-radius:10px;background:#0000000d;}
@@ -152,8 +170,17 @@ const GLOBAL_CSS = `
   table.st-sizechart th,table.st-sizechart td{border:1px solid var(--line);padding:8px 10px;text-align:center;}
   table.st-sizechart th{background:var(--chalk);}
   .st-size-row.hit{background:var(--stitch);color:#fff;font-weight:700;}
-  footer.st-note{margin-top:28px;font-size:12.5px;color:#9098a4;line-height:1.7;padding:16px 4px 0;border-top:1px dashed var(--line);}
-  footer.st-note b{color:#5b6478;}
+  footer.st-note{display:grid;grid-template-columns:auto 1fr;gap:12px;margin-top:28px;padding:18px;border:1px solid var(--line);border-radius:12px;background:#fff;color:#717a89;font-size:12px;line-height:1.6;}
+  .st-footer-mark{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#e8f0e3;color:#53684a;font-weight:800;}
+  footer.st-note strong{display:block;color:var(--ink);font-size:12.5px;margin-bottom:2px;}
+  footer.st-note p{margin:0;}
+  .st-disclaimer{margin-top:5px!important;color:#8b929d;}
+  .st-measure-details{margin-top:12px;border:1px solid var(--line);border-radius:10px;background:#fff;overflow:hidden;}
+  .st-measure-details summary{padding:12px 14px;color:#5b6478;font-size:12px;font-weight:600;cursor:pointer;list-style:none;}
+  .st-measure-details summary::-webkit-details-marker{display:none;}
+  .st-measure-details summary:after{content:"+";float:right;font-family:'IBM Plex Mono',monospace;}
+  .st-measure-details[open] summary:after{content:"−";}
+  .st-measure-details p{margin:0;padding:0 14px 14px;color:#7a8290;font-size:11.5px;line-height:1.6;}
   .st-handle{cursor:grab;}
   .st-handle:active{cursor:grabbing;}
   .st-tabs{display:flex;gap:8px;margin-bottom:16px;}
@@ -163,9 +190,19 @@ const GLOBAL_CSS = `
   .st-confidence{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--chalk);border-radius:8px;margin-top:12px;font-size:13px;}
   .st-confidence-bar{flex:1;height:8px;background:#d8d0bf;border-radius:4px;overflow:hidden;}
   .st-confidence-fill{height:100%;border-radius:4px;transition:width .3s;}
-  .st-tips{background:#f0f4ff;border:1px solid #c7d4f4;border-radius:10px;padding:14px 16px;margin-top:16px;}
-  .st-tips h4{margin:0 0 8px;font-size:13px;color:var(--blue);font-weight:600;}
-  .st-tips ul{margin:0;padding-left:18px;font-size:12.5px;color:#4b5563;line-height:1.6;}
+  .st-photo-guide{margin-top:16px;padding:18px;border:1px solid #dbe1e8;border-radius:12px;background:#f8fafc;}
+  .st-guide-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px;}
+  .st-guide-head h3{margin:0;font-size:14px;line-height:1.4;}
+  .st-guide-head p{margin:3px 0 0;color:#7b8493;font-size:12px;line-height:1.4;}
+  .st-guide-time{flex:0 0 auto;padding:5px 9px;border-radius:20px;background:#fff;border:1px solid #dbe1e8;color:#697386;font-size:10.5px;font-weight:700;}
+  .st-guide-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;}
+  .st-guide-item{display:flex;align-items:flex-start;gap:9px;padding:10px;background:#fff;border:1px solid #e5e9ef;border-radius:9px;}
+  .st-guide-check{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex:0 0 auto;background:#e5eee0;color:#5e7254;font-size:11px;font-weight:800;}
+  .st-guide-item strong{display:block;font-size:11.5px;line-height:1.3;}
+  .st-guide-item small{display:block;margin-top:2px;color:#7f8794;font-size:10.5px;line-height:1.35;}
+  .st-active-tip{margin:10px 0 0;padding:9px 11px;border-left:3px solid var(--blue);background:#eef4ff;color:#44536b;border-radius:0 7px 7px 0;font-size:11.5px;line-height:1.45;}
+  .st-privacy-strip{display:flex;align-items:flex-start;gap:9px;margin-top:12px;padding:10px 12px;border-radius:9px;background:#eef3ea;color:#52624b;font-size:11.5px;line-height:1.45;}
+  .st-privacy-strip strong{display:block;color:#42523b;}
   .st-photo-preview{display:flex;gap:12px;margin-top:16px;flex-wrap:wrap;}
   .st-photo-thumb{position:relative;width:120px;height:160px;border-radius:8px;overflow:hidden;border:2px solid var(--line);}
   .st-photo-thumb.active{border-color:var(--brass);}
@@ -177,7 +214,33 @@ const GLOBAL_CSS = `
   .st-accuracy-badge.high{background:#dcfce7;color:#15803d;}
   .st-accuracy-badge.medium{background:#fef3c7;color:#a16207;}
   .st-accuracy-badge.low{background:#fee2e2;color:#b91c1c;}
-  .st-step h2{font-family:'Fraunces',serif;font-size:19px;font-weight:600;margin:0;}
+  .st-step h2{font-family:'Fraunces',serif;font-size:20px;font-weight:600;margin:0;}
+  .st-saved{display:flex;align-items:center;gap:10px;margin-top:16px;padding:12px 14px;border-radius:10px;background:#eef3ea;color:#53644b;font-size:12.5px;line-height:1.45;}
+  .st-saved-mark{width:22px;height:22px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;border-radius:50%;background:#d7e5d0;font-size:11px;font-weight:800;}
+  .st-result-note{margin-top:16px;padding:13px 15px;border:1px solid #dbe1e8;border-radius:10px;background:#f8fafc;color:#657083;font-size:12px;line-height:1.55;}
+  .st-result-note strong{color:var(--ink);}
+  @media(max-width:680px){
+    body{padding-bottom:32px;}
+    .st-wrap{padding:16px 12px 0;}
+    .st-header{padding:26px 20px;border-radius:16px;}
+    .st-h1{font-size:36px;}
+    .st-header-copy{font-size:14px;line-height:1.55;}
+    .st-quick-flow{grid-template-columns:1fr;}
+    .st-flow-item{padding:10px 12px;}
+    .st-step{padding:18px 15px;margin-top:16px;}
+    .st-row,.st-row-3,.st-result-grid{grid-template-columns:1fr;}
+    .st-guide-grid{grid-template-columns:1fr;}
+    .st-upload-choices{grid-template-columns:1fr;}
+    .st-step-head{align-items:flex-start;}
+    .st-hint{width:100%;margin-left:40px;}
+    .st-tabs{gap:6px;}
+    .st-tab{padding:10px 8px;font-size:12px;}
+    .st-tab .icon{font-size:16px;}
+    .st-photo-thumb{width:100px;height:134px;}
+    .st-confidence{align-items:flex-start;flex-wrap:wrap;}
+    .st-confidence-bar{min-width:150px;}
+    footer.st-note{padding:15px;}
+  }
 `;
 
 /* ─────────────────────────────────────────────
@@ -244,7 +307,7 @@ export default function SizeTapeCalculator() {
 
   /* ── Model ── */
   const [modelReady, setModelReady] = useState(false);
-  const [modelStatus, setModelStatus] = useState("Model load ho raha hai…");
+  const [modelStatus, setModelStatus] = useState("Preparing photo scanner…");
   const [, setModelType] = useState<"lightning" | "thunder">("thunder");
   const detectorRef = useRef<Detector | null>(null);
 
@@ -297,7 +360,7 @@ export default function SizeTapeCalculator() {
       );
       setModelReady(true);
       setModelType("thunder");
-      setModelStatus("Pose model ready — THUNDER (high accuracy)");
+      setModelStatus("Photo scanner ready");
     } catch {
       // Fallback to Lightning
       try {
@@ -307,9 +370,9 @@ export default function SizeTapeCalculator() {
         );
         setModelReady(true);
         setModelType("lightning");
-        setModelStatus("Pose model ready — LIGHTNING (fast)");
+        setModelStatus("Photo scanner ready");
       } catch {
-        setModelStatus("Auto-detect load nahi hua — manual mode use karein");
+        setModelStatus("Automatic scanning is unavailable — adjust the guides manually");
       }
     }
   }
@@ -317,8 +380,8 @@ export default function SizeTapeCalculator() {
   /* ─── Step 1 ─── */
   function calcBaseline() {
     const h = parseFloat(heightVal), w = parseFloat(weightVal);
-    if (!gender) { alert("Gender select karein"); return; }
-    if (!h || !w) { alert("Height aur weight bharein"); return; }
+    if (!gender) { alert("Please select a gender."); return; }
+    if (!h || !w) { alert("Please enter your height and weight."); return; }
     const b = w / Math.pow(h / 100, 2);
     const sz = sizeFromBMI(b, gender);
     setBmi(b); setBaselineSize(sz);
@@ -372,11 +435,11 @@ export default function SizeTapeCalculator() {
 
   /* ─── Run detection after image loads ─── */
   async function runDetection(type: PhotoType) {
-    setDetectBanner({ text: "Body detect ho raha hai… (THUNDER model)", type: "loading" });
+    setDetectBanner({ text: "Scanning your photo…", type: "loading" });
     setShowInstructions(false);
     
     if (!detectorRef.current) {
-      setDetectBanner({ text: "Model abhi ready nahi — handles ko manually adjust karein", type: "warn" });
+      setDetectBanner({ text: "The scanner is not ready yet — adjust the guides manually", type: "warn" });
       finishDetectUI(false); return;
     }
     
@@ -451,18 +514,22 @@ export default function SizeTapeCalculator() {
         setSideConfidence(confidence);
       }
       
-      const confText = confidence >= 80 ? "High confidence" : confidence >= 50 ? "Medium confidence" : "Low confidence";
-      setDetectBanner({ 
-        text: `Body detect ho gaya — ${confText} (${confidence.toFixed(0)}%)`, 
-        type: confidence >= 50 ? "success" : "warn" 
+      const qualityText = confidence >= 80
+        ? "photo quality is excellent"
+        : confidence >= 50
+          ? "photo quality looks good"
+          : "please review the guides";
+      setDetectBanner({
+        text: `Photo ready — ${qualityText}`,
+        type: confidence >= 50 ? "success" : "warn"
       });
       finishDetectUI(true);
     } catch {
       if (type === "front") setFrontAutoDetected(false);
       else setSideAutoDetected(false);
-      setDetectBanner({ 
-        text: "Poori body clearly detect nahi hui — line ko manually set karein", 
-        type: "warn" 
+      setDetectBanner({
+        text: "We could not detect the full body clearly — position the waist guide manually",
+        type: "warn"
       });
       finishDetectUI(false);
     }
@@ -481,7 +548,7 @@ export default function SizeTapeCalculator() {
       camStreamRef.current = stream;
       if (videoRef.current) { videoRef.current.srcObject = stream; }
       setCamActive(true);
-    } catch { alert("Camera access nahi mil paya. Photo upload try karein."); }
+    } catch { alert("Camera access was not available. Please upload a photo instead."); }
   }
   function stopCamera() {
     camStreamRef.current?.getTracks().forEach(t => t.stop());
@@ -511,6 +578,8 @@ export default function SizeTapeCalculator() {
   const topY = activePhotoType === "front" ? frontTopY : sideTopY;
   const bottomY = activePhotoType === "front" ? frontBottomY : sideBottomY;
   const autoDetected = activePhotoType === "front" ? frontAutoDetected : sideAutoDetected;
+  const currentConfidence = activePhotoType === "front" ? frontConfidence : sideConfidence;
+  const currentPhotoQuality = currentConfidence >= 70 ? "Clear" : currentConfidence >= 40 ? "Good" : "Review needed";
 
   function handlePointerMove(e: ReactPointerEvent<SVGSVGElement>) {
     if (!draggingRef.current || !imgRef.current) return;
@@ -575,9 +644,9 @@ export default function SizeTapeCalculator() {
     } else {
       // Use height for calibration
       const pxHeight = (frontBottomY - frontTopY) * img.naturalHeight;
-      if (pxHeight <= 0) { 
-        alert("Head-top aur feet-bottom line sahi jagah par nahi hain."); 
-        return; 
+      if (pxHeight <= 0) {
+        alert("Please position the head and feet guides correctly.");
+        return;
       }
       const h = parseFloat(heightVal);
       scale = h / pxHeight;
@@ -650,15 +719,15 @@ export default function SizeTapeCalculator() {
     const diff = Math.abs(ORDER.indexOf(waistSize) - ORDER.indexOf(baselineSize));
     if (diff >= 2) {
       flagType = "warn";
-      flagText = "Photo-based waist aur height/weight baseline mein bada farak hai. Photo dobara seedhe khade hoke try karein.";
+      flagText = "Your details and photo estimate do not match closely. For a better result, retake the photo while standing straight.";
     } else {
       flagType = "ok";
-      flagText = "Baseline aur photo measurement consistent hain — confidence high hai.";
+      flagText = "Your details and photo estimate are closely aligned.";
     }
   }
 
-  // Accuracy badge
-  const getAccuracyLevel = () => {
+  // User-facing quality is based on photo coverage, not a measurement guarantee.
+  const getPhotoSetupQuality = () => {
     if (measurementMethod === "ellipse" && frontConfidence >= 70 && sideConfidence >= 70) return "high";
     if (frontConfidence >= 60 || measurementMethod === "ellipse") return "medium";
     return "low";
@@ -702,20 +771,56 @@ export default function SizeTapeCalculator() {
 
         {/* ── Header ── */}
         <header className="st-header">
-          <p className="st-eyebrow">v2.0 · Ellipse Method · High Accuracy Mode</p>
-          <h1 className="st-h1">Size Tape</h1>
-          <p>Front + side photo se Ramanujan ellipse formula use karke accurate waist circumference nikalte hain. Pose detection aapke browser mein chalta hai — koi data upload nahi hota.</p>
-          <div className="st-pill">
-            <span className={`st-dot ${modelReady ? "ready" : "busy"}`} />
-            <span>{modelStatus}</span>
+          <p className="st-eyebrow">Smart size finder</p>
+          <h1 className="st-h1">Find your best fit from home.</h1>
+          <p className="st-header-copy">
+            Enter your basic details and add two clear photos to get an estimated waist measurement and recommended clothing size.
+          </p>
+
+          <div className="st-hero-actions">
+            <button
+              type="button"
+              className="st-hero-btn"
+              onClick={() => document.getElementById("st-step1")?.scrollIntoView({ behavior: "smooth" })}
+            >
+              Start size check <span aria-hidden="true">→</span>
+            </button>
+            <span className="st-time-note">Takes about 2 minutes</span>
+          </div>
+
+          <div className="st-trust-row">
+            <span className="st-pill">
+              <span className="st-pill-icon" aria-hidden="true">✓</span>
+              Your photos stay private on this device
+            </span>
+            <span className="st-pill status" aria-live="polite">
+              <span className={`st-dot ${modelReady ? "ready" : modelStatus.includes("Preparing") ? "busy" : ""}`} />
+              {modelStatus}
+            </span>
+          </div>
+
+          <div className="st-quick-flow" aria-label="Three steps to check your size">
+            <div className="st-flow-item">
+              <span className="st-flow-num">1</span>
+              <div><strong>Enter your details</strong><small>Height and weight</small></div>
+            </div>
+            <div className="st-flow-item">
+              <span className="st-flow-num">2</span>
+              <div><strong>Add your photos</strong><small>Front and side views</small></div>
+            </div>
+            <div className="st-flow-item">
+              <span className="st-flow-num">3</span>
+              <div><strong>See your size</strong><small>Waist and fit estimate</small></div>
+            </div>
           </div>
         </header>
 
         {/* ── Step 1 ── */}
-        <div className="st-step">
+        <div id="st-step1" className="st-step">
           <div className="st-step-head">
             <div className="st-num">1</div>
-            <h2>Apni details daalein</h2>
+            <h2>Tell us a little about you</h2>
+            <span className="st-hint">All fields are required</span>
           </div>
           <label className="st-label">Gender</label>
           <div className="st-gtoggle">
@@ -736,33 +841,37 @@ export default function SizeTapeCalculator() {
             </div>
           </div>
           
-          {/* Calibration method */}
-          <label className="st-label" style={{ marginTop: 16 }}>Scale Calibration Method</label>
+          {/* Photo scale method */}
+          <label className="st-label" style={{ marginTop: 16 }}>How should we scale your photo?</label>
           <div className="st-gtoggle">
-            <button 
-              className={`st-gbtn ${calibrationMethod === "height" ? "active" : ""}`} 
+            <button
+              type="button"
+              className={`st-gbtn ${calibrationMethod === "height" ? "active" : ""}`}
               onClick={() => setCalibrationMethod("height")}
             >
-              📏 Height se
+              Use my height · Easiest
             </button>
-            <button 
-              className={`st-gbtn ${calibrationMethod === "card" ? "active" : ""}`} 
+            <button
+              type="button"
+              className={`st-gbtn ${calibrationMethod === "card" ? "active" : ""}`}
               onClick={() => setCalibrationMethod("card")}
             >
-              💳 Credit Card se
+              Use a standard card
             </button>
           </div>
-          <p style={{ fontSize: 12, color: "#8a8f9c", margin: "8px 0 0" }}>
-            {calibrationMethod === "card" 
-              ? "Photo mein credit card rakhein — exact size calibration ke liye (85.6mm × 53.98mm)" 
-              : "Photo mein head se feet dikhna chahiye — height se scale calculate hoga"}
+          <p style={{ fontSize: 12, color: "#8a8f9c", margin: "8px 0 0", lineHeight: 1.5 }}>
+            {calibrationMethod === "card"
+              ? "Hold a standard bank card flat and clearly visible in your front photo. The card details do not need to be readable."
+              : "Recommended: make sure your full body is visible from head to toe."}
           </p>
-          
-          <button className="st-btn" onClick={calcBaseline} style={{ marginTop: 16 }}>Baseline size nikalein</button>
+
+          <button type="button" className="st-btn" onClick={calcBaseline} style={{ marginTop: 16 }}>
+            Continue <span aria-hidden="true">→</span>
+          </button>
           {baselineSize && bmi && (
-            <div className="st-baseline">
-              Baseline estimate: <b>{baselineSize}</b>
-              <div style={{ marginTop: 4, color: "#5b6478" }}>BMI {bmi.toFixed(1)} · Sirf height/weight par based</div>
+            <div className="st-saved" role="status">
+              <span className="st-saved-mark" aria-hidden="true">✓</span>
+              <span>Details saved. Add a front photo to complete your size check.</span>
             </div>
           )}
         </div>
@@ -771,8 +880,8 @@ export default function SizeTapeCalculator() {
         <div className={`st-step ${step2Locked ? "locked" : ""}`}>
           <div className="st-step-head">
             <div className="st-num">2</div>
-            <h2>Photo se waist measure karein</h2>
-            <span className="st-hint">2 photos = best accuracy</span>
+            <h2>Add front and side photos</h2>
+            <span className="st-hint">Front required · Side recommended</span>
           </div>
 
           {/* Photo type tabs */}
@@ -781,29 +890,50 @@ export default function SizeTapeCalculator() {
               className={`st-tab ${activePhotoType === "front" ? "active" : ""} ${frontPhotoSrc ? "" : ""}`}
               onClick={() => setActivePhotoType("front")}
             >
-              <span className="icon">👤</span>
-              Front Photo {frontPhotoSrc && "✓"}
+              <span className="icon" aria-hidden="true">①</span>
+              Front view {frontPhotoSrc && "✓"}
             </button>
             <button 
               className={`st-tab ${activePhotoType === "side" ? "active" : ""}`}
               onClick={() => setActivePhotoType("side")}
             >
-              <span className="icon">🧍</span>
-              Side Photo {sidePhotoSrc && "✓"} <span style={{ fontSize: 10, opacity: 0.7 }}>(recommended)</span>
+              <span className="icon" aria-hidden="true">②</span>
+              Side view {sidePhotoSrc && "✓"} <span style={{ fontSize: 10, opacity: 0.72 }}>(recommended)</span>
             </button>
           </div>
 
-          {/* Tips */}
-          <div className="st-tips">
-            <h4>📸 Better Photo = Better Accuracy</h4>
-            <ul>
-              <li><b>Tight/fitted kapde</b> pehne — loose clothes se measurement galat hota hai</li>
-              <li><b>Seedhe khade ho</b>, haath side mein naturally</li>
-              <li><b>Camera waist level par</b> rakhein, na ki upar ya neeche se</li>
-              <li><b>Full body dikhna chahiye</b> — head se paanv tak</li>
-              {calibrationMethod === "card" && <li><b>Credit card</b> waist ke paas floor par ya haath mein rakhein</li>}
-              {activePhotoType === "side" && <li><b>90° turn</b> karein — bilkul side profile hona chahiye</li>}
-            </ul>
+          {/* Short, action-focused photo checklist */}
+          <div className="st-photo-guide">
+            <div className="st-guide-head">
+              <div>
+                <h3>Before taking your photo</h3>
+                <p>Check these three things for the best result.</p>
+              </div>
+              <span className="st-guide-time">Quick check</span>
+            </div>
+            <div className="st-guide-grid">
+              <div className="st-guide-item">
+                <span className="st-guide-check" aria-hidden="true">✓</span>
+                <div><strong>Full body</strong><small>Keep your whole body in frame</small></div>
+              </div>
+              <div className="st-guide-item">
+                <span className="st-guide-check" aria-hidden="true">✓</span>
+                <div><strong>Stand straight</strong><small>Wear fitted clothing, arms relaxed</small></div>
+              </div>
+              <div className="st-guide-item">
+                <span className="st-guide-check" aria-hidden="true">✓</span>
+                <div><strong>Camera at waist level</strong><small>Keep the camera level, not tilted</small></div>
+              </div>
+            </div>
+            <p className="st-active-tip">
+              <strong>{activePhotoType === "front" ? "Front photo:" : "Side photo:"}</strong>{" "}
+              {activePhotoType === "front"
+                ? "face the camera and stand straight."
+                : "turn 90° and stand in a true side profile."}
+              {calibrationMethod === "card" && activePhotoType === "front"
+                ? " Hold a standard bank card flat near your waist."
+                : ""}
+            </p>
           </div>
 
           {/* Photo previews */}
@@ -812,14 +942,14 @@ export default function SizeTapeCalculator() {
               {frontPhotoSrc && (
                 <div className={`st-photo-thumb ${activePhotoType === "front" ? "active" : ""}`} onClick={() => setActivePhotoType("front")}>
                   <img src={frontPhotoSrc} alt="Front" />
-                  <span className="label">Front {frontConfidence > 0 && `(${frontConfidence.toFixed(0)}%)`}</span>
+                  <span className="label">Front view · Ready</span>
                   <button className="remove" onClick={(e) => { e.stopPropagation(); retake("front"); }}>×</button>
                 </div>
               )}
               {sidePhotoSrc && (
                 <div className={`st-photo-thumb ${activePhotoType === "side" ? "active" : ""}`} onClick={() => setActivePhotoType("side")}>
                   <img src={sidePhotoSrc} alt="Side" />
-                  <span className="label">Side {sideConfidence > 0 && `(${sideConfidence.toFixed(0)}%)`}</span>
+                  <span className="label">Side view · Ready</span>
                   <button className="remove" onClick={(e) => { e.stopPropagation(); retake("side"); }}>×</button>
                 </div>
               )}
@@ -828,16 +958,36 @@ export default function SizeTapeCalculator() {
 
           {/* Upload zones */}
           {!currentPhotoSrc && !camActive && (
-            <div className="st-upload-choices" style={{ marginTop: 16 }}>
-              <div className="st-upload-zone" onClick={() => fileInputRef.current?.click()}>
-                <div>🖼️</div>
-                <p><b>{activePhotoType === "front" ? "Front" : "Side"} photo upload</b> karein</p>
+            <>
+              <div className="st-upload-choices" style={{ marginTop: 16 }}>
+                <div
+                  className="st-upload-zone"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => fileInputRef.current?.click()}
+                  onKeyDown={e => { if (e.key === "Enter" || e.key === " ") fileInputRef.current?.click(); }}
+                >
+                  <div className="st-upload-icon" aria-hidden="true">↑</div>
+                  <strong>Upload from gallery</strong>
+                  <span>{activePhotoType === "front" ? "Select a front-view photo" : "Select a side-view photo"}</span>
+                </div>
+                <div
+                  className="st-upload-zone"
+                  role="button"
+                  tabIndex={0}
+                  onClick={startCamera}
+                  onKeyDown={e => { if (e.key === "Enter" || e.key === " ") startCamera(); }}
+                >
+                  <div className="st-upload-icon" aria-hidden="true">◎</div>
+                  <strong>Take a photo</strong>
+                  <span>Use your camera now</span>
+                </div>
               </div>
-              <div className="st-upload-zone" onClick={startCamera}>
-                <div>📷</div>
-                <p><b>Camera</b> se khinchein</p>
+              <div className="st-privacy-strip">
+                <span className="st-pill-icon" aria-hidden="true">✓</span>
+                <span><strong>Your photo is private</strong>It is processed on this device and is never uploaded or stored.</span>
               </div>
-            </div>
+            </>
           )}
 
           <input ref={fileInputRef} type="file" accept="image/*" style={{ display: "none" }}
@@ -847,7 +997,7 @@ export default function SizeTapeCalculator() {
             <>
               <video ref={videoRef} className="st-video" autoPlay playsInline />
               <div className="st-cam-controls">
-                <button className="st-btn" onClick={capturePhoto}>{activePhotoType === "front" ? "Front" : "Side"} photo khinchein</button>
+                <button className="st-btn" onClick={capturePhoto}>Take {activePhotoType === "front" ? "front" : "side"} photo</button>
                 <button className="st-btn secondary" onClick={stopCamera}>Cancel</button>
               </div>
             </>
@@ -875,7 +1025,7 @@ export default function SizeTapeCalculator() {
                         fill="#1B2A4A" stroke="#fff" strokeWidth={2}
                         onPointerDown={e => handlePointerDown(e, "T")}
                       />
-                      <text x={sw / 2 + 16} y={ty + 4} fontSize={10} fill="#1B2A4A" fontFamily="IBM Plex Mono">head top</text>
+                      <text x={sw / 2 + 16} y={ty + 4} fontSize={10} fill="#1B2A4A" fontFamily="IBM Plex Mono">head</text>
 
                       {/* Feet line */}
                       <line x1={0} y1={by} x2={sw} y2={by} stroke="#1B2A4A" strokeWidth={2} strokeDasharray="6,4" />
@@ -904,7 +1054,7 @@ export default function SizeTapeCalculator() {
                         onPointerDown={e => handlePointerDown(e, "Y")}
                       />
                       <text x={sw / 2} y={y + 4} fontSize={9} fill="#fff" textAnchor="middle" fontFamily="IBM Plex Mono" pointerEvents="none">
-                        {activePhotoType === "front" ? (autoDetected ? "front width" : "waist line") : (autoDetected ? "side depth" : "waist line")}
+                        {autoDetected ? "waist" : "set waist"}
                       </text>
                       
                       {/* Credit card overlay for calibration */}
@@ -939,7 +1089,7 @@ export default function SizeTapeCalculator() {
                             fill="#3B82F6" 
                             fontFamily="IBM Plex Mono"
                           >
-                            💳 credit card
+                            standard card
                           </text>
                         </>
                       )}
@@ -948,25 +1098,25 @@ export default function SizeTapeCalculator() {
                 </div>
               </div>
 
-              {/* Confidence indicator */}
-              {(frontConfidence > 0 || sideConfidence > 0) && (
+              {/* Photo scan quality — intentionally qualitative, not an accuracy claim */}
+              {currentConfidence > 0 && (
                 <div className="st-confidence">
-                  <span style={{ fontSize: 12, fontWeight: 600 }}>Detection Confidence:</span>
-                  <div className="st-confidence-bar">
-                    <div 
-                      className="st-confidence-fill" 
-                      style={{ 
-                        width: `${activePhotoType === "front" ? frontConfidence : sideConfidence}%`,
-                        background: (activePhotoType === "front" ? frontConfidence : sideConfidence) >= 70 
-                          ? "var(--sage)" 
-                          : (activePhotoType === "front" ? frontConfidence : sideConfidence) >= 40 
-                            ? "var(--brass)" 
+                  <span style={{ fontSize: 12, fontWeight: 600 }}>Photo scan quality</span>
+                  <div className="st-confidence-bar" aria-hidden="true">
+                    <div
+                      className="st-confidence-fill"
+                      style={{
+                        width: `${currentConfidence}%`,
+                        background: currentConfidence >= 70
+                          ? "var(--sage)"
+                          : currentConfidence >= 40
+                            ? "var(--brass)"
                             : "var(--stitch)"
                       }}
                     />
                   </div>
-                  <span style={{ fontSize: 12, fontFamily: "'IBM Plex Mono', monospace" }}>
-                    {(activePhotoType === "front" ? frontConfidence : sideConfidence).toFixed(0)}%
+                  <span style={{ fontSize: 12, fontWeight: 600 }}>
+                    {currentPhotoQuality}
                   </span>
                 </div>
               )}
@@ -1003,12 +1153,12 @@ export default function SizeTapeCalculator() {
           {/* Instructions */}
           {showInstructions && (
             <p className="st-instructions">
-              {activePhotoType === "front" 
-                ? <>Lines auto-set ho gayi hain. <b>Brass line</b> waist par honi chahiye. Handles drag karke fine-tune karein.</>
-                : <>Side photo ke liye <b>blue line</b> ko waist ki <b>depth</b> (aage-peeche) par align karein.</>
+              {activePhotoType === "front"
+                ? <>Position the highlighted guide across both edges of your waist. Drag the round handles if needed.</>
+                : <>Position the highlighted guide across the front and back edges of your waist in the side profile.</>
               }
               {calibrationMethod === "card" && activePhotoType === "front" && (
-                <> <b>Blue card box</b> ko credit card par fit karein — isse exact scale milega.</>
+                <> Fit the blue box precisely over the standard card.</>
               )}
             </p>
           )}
@@ -1020,19 +1170,19 @@ export default function SizeTapeCalculator() {
                 className="st-btn blue" 
                 onClick={() => { setActivePhotoType("side"); }}
               >
-                ➕ Side photo add karein (better accuracy)
+                Add a side photo →
               </button>
             )}
             
             {showConfirm && frontPhotoSrc && (
               <button className="st-btn" onClick={confirmWaist}>
-                {sidePhotoSrc ? "Ellipse method se measure karein →" : "Waist confirm karein →"}
+                {sidePhotoSrc ? "See my size →" : "Continue with front photo →"}
               </button>
             )}
             
             {currentPhotoSrc && (
               <button className="st-btn ghost" onClick={() => retake(activePhotoType)}>
-                {activePhotoType === "front" ? "Front" : "Side"} photo change karein
+                Change {activePhotoType === "front" ? "front" : "side"} photo
               </button>
             )}
           </div>
@@ -1048,73 +1198,67 @@ export default function SizeTapeCalculator() {
           {finalSize && (
             <>
               <div className="st-result-hero">
-                <p className="st-eyebrow">Recommended size</p>
+                <p className="st-eyebrow">Your recommended size</p>
                 <div className="st-size-big">{finalSize}</div>
-                <div style={{ fontFamily: "'IBM Plex Mono',monospace", fontSize: "12.5px", opacity: 0.75, marginBottom: 12 }}>
-                  {measurementMethod === "ellipse" 
-                    ? "Ramanujan Ellipse Formula (front + side)" 
-                    : waistSize 
-                      ? "Single photo method" 
-                      : "BMI baseline (photo add karein)"}
+                <div style={{ fontSize: "12.5px", opacity: 0.78, marginBottom: 12 }}>
+                  {measurementMethod === "ellipse"
+                    ? "Based on your front and side photos"
+                    : waistSize
+                      ? "Based on your front photo and details"
+                      : "Based on your basic details"}
                 </div>
-                <span className={`st-accuracy-badge ${getAccuracyLevel()}`}>
-                  {getAccuracyLevel() === "high" && "🎯 High Accuracy"}
-                  {getAccuracyLevel() === "medium" && "📐 Medium Accuracy"}
-                  {getAccuracyLevel() === "low" && "📏 Basic Estimate"}
+                <span className={`st-accuracy-badge ${getPhotoSetupQuality()}`}>
+                  {getPhotoSetupQuality() === "high" && "Photo setup · Excellent"}
+                  {getPhotoSetupQuality() === "medium" && "Photo setup · Good"}
+                  {getPhotoSetupQuality() === "low" && "Photo setup · Basic"}
                 </span>
               </div>
 
               <div className="st-result-grid" style={{ marginTop: 18 }}>
                 <div className="st-result-card">
-                  <label className="st-label">BMI baseline size</label>
+                  <label className="st-label">Details-based estimate</label>
                   <div className="val">{baselineSize}</div>
                 </div>
                 <div className="st-result-card">
-                  <label className="st-label">Photo-based size</label>
+                  <label className="st-label">Photo-based estimate</label>
                   <div className="val">{waistSize || "—"}</div>
                 </div>
                 <div className="st-result-card">
-                  <label className="st-label">Waist circumference</label>
+                  <label className="st-label">Estimated waist</label>
                   <div className="val">{waistCm ? waistCm.toFixed(1) + " cm" : "—"}</div>
                 </div>
                 <div className="st-result-card">
-                  <label className="st-label">Method used</label>
+                  <label className="st-label">Photos used</label>
                   <div className="val" style={{ fontSize: 14 }}>
-                    {measurementMethod === "ellipse" ? "Ellipse (2 photos)" : "Single photo"}
+                    {measurementMethod === "ellipse" ? "Front + side" : "Front only"}
                   </div>
                 </div>
               </div>
               
-              {/* Detailed measurements */}
+              {/* Optional details stay out of the primary user journey. */}
               {(frontWidthCm || sideDepthCm) && (
-                <div className="st-result-grid" style={{ marginTop: 12 }}>
-                  <div className="st-result-card">
-                    <label className="st-label">Front width (a)</label>
-                    <div className="val">{frontWidthCm ? frontWidthCm.toFixed(1) + " cm" : "—"}</div>
+                <details className="st-measure-details">
+                  <summary>View measurement details</summary>
+                  <div className="st-result-grid" style={{ margin: 0, padding: "0 14px 14px" }}>
+                    <div className="st-result-card">
+                      <label className="st-label">Front measurement</label>
+                      <div className="val">{frontWidthCm ? frontWidthCm.toFixed(1) + " cm" : "—"}</div>
+                    </div>
+                    <div className="st-result-card">
+                      <label className="st-label">Side measurement</label>
+                      <div className="val">{sideDepthCm ? sideDepthCm.toFixed(1) + " cm" : "—"}</div>
+                    </div>
                   </div>
-                  <div className="st-result-card">
-                    <label className="st-label">Side depth (b)</label>
-                    <div className="val">{sideDepthCm ? sideDepthCm.toFixed(1) + " cm" : "—"}</div>
-                  </div>
-                </div>
+                </details>
               )}
 
               {flagType && (
                 <div className={`st-flag ${flagType}`}>{flagText}</div>
               )}
               
-              {/* Measurement methodology explanation */}
-              {measurementMethod === "ellipse" && (
-                <div className="st-tips" style={{ marginTop: 16 }}>
-                  <h4>🧮 Ramanujan Ellipse Formula</h4>
-                  <ul>
-                    <li>Front photo se waist ki <b>width (a)</b> = {frontWidthCm?.toFixed(1)} cm</li>
-                    <li>Side photo se waist ki <b>depth (b)</b> = {sideDepthCm?.toFixed(1)} cm</li>
-                    <li>Ellipse circumference ≈ <b>π(a+b)(1 + 3h/(10+√(4-3h)))</b> where h = (a-b)²/(a+b)²</li>
-                    <li>Result: <b>{waistCm?.toFixed(1)} cm</b> — tape measure se ~2-3cm difference ho sakta hai</li>
-                  </ul>
-                </div>
-              )}
+              <div className="st-result-note">
+                <strong>Fit note:</strong> This is a photo-based estimate. Fit may vary by brand, fabric, and style, so check the brand's size chart before ordering.
+              </div>
 
               {/* Size chart */}
               {heightCm > 0 && (
@@ -1142,12 +1286,12 @@ export default function SizeTapeCalculator() {
 
         {/* ── Footer ── */}
         <footer className="st-note">
-          <b>🎯 Accuracy Improvements in v2.0:</b><br />
-          • <b>THUNDER model</b> — MoveNet ka high-accuracy variant (Lightning se 15-20% better)<br />
-          • <b>Ellipse method</b> — Front + side photos se Ramanujan formula use karke real circumference nikalte hain (flat multiplier nahi)<br />
-          • <b>Credit card calibration</b> — Reference object se pixel-to-cm ratio accurately calculate hota hai<br />
-          • <b>Confidence scoring</b> — Keypoint visibility se accuracy estimate dikhate hain<br /><br />
-          <b>Privacy:</b> Sab kuch browser mein hota hai — koi photo server par nahi jaati.
+          <span className="st-footer-mark" aria-hidden="true">✓</span>
+          <div>
+            <strong>Your photos stay private</strong>
+            <p>Photos are processed entirely on your device. We never upload, share, or store them.</p>
+            <p className="st-disclaimer">Size recommendations are estimates; final fit may vary by brand and style.</p>
+          </div>
         </footer>
 
       </div>
