@@ -1,1 +1,4 @@
-@import "tailwindcss";
+/* Demo page ke liye base reset — component apni saari styles khud inject karta hai */
+body {
+  margin: 0;
+}
