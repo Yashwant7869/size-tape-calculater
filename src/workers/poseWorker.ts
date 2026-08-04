@@ -1,16 +1,15 @@
 /* ─────────────────────────────────────────────
    Pose detection worker (§6.4).
-   The main thread posts an ImageBitmap (or
-   ImageData-transferable) and a request id; this
-   worker runs MoveNet (or BlazePose) and posts back
-   the keypoints plus a confidence score.
+   Bundled with local @tensorflow-models/pose-detection
+   so the scanner works without external CDN access.
 ───────────────────────────────────────────── */
 
 /// <reference lib="webworker" />
 
 import type { PoseKeypoint } from "../utils/poseModel";
+import * as poseDetection from "@tensorflow-models/pose-detection";
+import * as tf from "@tensorflow/tfjs";
 
-// Loaded scripts from the main thread (TFJS + pose-detection).
 declare const self: DedicatedWorkerGlobalScope;
 
 interface DetectRequest {
@@ -62,7 +61,6 @@ self.addEventListener("message", async (e: MessageEvent<Req>) => {
       if (!detector) {
         await loadModel("movenet-thunder");
       }
-      // Draw the bitmap to an OffscreenCanvas at a capped size.
       const maxSide = 640;
       const ratio = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
       const cnv = new OffscreenCanvas(
@@ -71,14 +69,9 @@ self.addEventListener("message", async (e: MessageEvent<Req>) => {
       );
       const ctx = cnv.getContext("2d")!;
       ctx.drawImage(bitmap, 0, 0, cnv.width, cnv.height);
-      // Run detection
       const det = detector!;
       const poses = await det.estimatePoses(cnv as unknown as HTMLCanvasElement);
       const rawKeypoints: PoseKeypoint[] = poses[0]?.keypoints ?? [];
-      // IMPORTANT: the detector ran on the downscaled canvas (≤640 px), so
-      // keypoints are in canvas pixel space. Rescale them back to the
-      // original image's pixel space — all downstream math (calibration,
-      // acceptance checks, guide placement) assumes natural pixels.
       const scaleBack = cnv.width > 0 ? bitmap.width / cnv.width : 1;
       bitmap.close();
       const keypoints: PoseKeypoint[] = scaleBack === 1
@@ -106,43 +99,26 @@ self.addEventListener("message", async (e: MessageEvent<Req>) => {
 });
 
 async function loadModel(model: string): Promise<void> {
-  // Inject TFJS + pose-detection if not present.
-  if (!(self as unknown as { tf?: unknown }).tf) {
-    await injectScript("https://cdnjs.cloudflare.com/ajax/libs/tensorflow/4.20.0/tf.min.js");
+  // Ensure TF backend is ready (WebGL/WASM) before creating detector.
+  // Ensure TF backend is ready. Try webgl first, then wasm, then cpu.
+  try {
+    await tf.setBackend("webgl");
+  } catch {
+    try {
+      await tf.setBackend("wasm");
+    } catch {
+      await tf.setBackend("cpu");
+    }
   }
-  if (!(self as unknown as { poseDetection?: unknown }).poseDetection) {
-    await injectScript("https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection");
-  }
-  const pd = (self as unknown as {
-    poseDetection: {
-      createDetector(model: string, cfg: object): Promise<{ estimatePoses(img: HTMLCanvasElement): Promise<{ keypoints: PoseKeypoint[] }[]> }>;
-      SupportedModels: { MoveNet: string };
-      movenet: { modelType: { SINGLEPOSE_THUNDER: string; SINGLEPOSE_LIGHTNING: string } };
-    };
-  }).poseDetection;
+  await tf.ready();
 
-  // The worker supports the two MoveNet variants; anything else (including
-  // the legacy "blazepose" kind, which is a main-thread-only model) falls
-  // back to Thunder rather than failing.
   const variant = model === "movenet-lightning"
-    ? pd.movenet.modelType.SINGLEPOSE_LIGHTNING
-    : pd.movenet.modelType.SINGLEPOSE_THUNDER;
-  detector = await pd.createDetector(pd.SupportedModels.MoveNet, { modelType: variant });
-}
-
-function injectScript(src: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if ((self as unknown as { __injected?: Set<string> }).__injected?.has(src)) {
-      resolve();
-      return;
-    }
-    importScripts(src);
-    if (!(self as unknown as { __injected?: Set<string> }).__injected) {
-      (self as unknown as { __injected: Set<string> }).__injected = new Set();
-    }
-    (self as unknown as { __injected: Set<string> }).__injected!.add(src);
-    resolve();
-  });
+    ? poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING
+    : poseDetection.movenet.modelType.SINGLEPOSE_THUNDER;
+  detector = await poseDetection.createDetector(
+    poseDetection.SupportedModels.MoveNet,
+    { modelType: variant }
+  );
 }
 
 export {};
