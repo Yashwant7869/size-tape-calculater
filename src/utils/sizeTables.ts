@@ -1,8 +1,9 @@
 /* ─────────────────────────────────────────────
    Size tables, region/brand-aware.
    Each row maps a clothing size to a recommended
-   waist range in cm. Range varies by fit (Slim /
-   Regular / Relaxed).
+   waist or chest range in cm. Range varies by fit
+   (Slim / Regular / Relaxed) and garment class
+   (bottom, top, outerwear, dress).
 ───────────────────────────────────────────── */
 
 import type { Gender, SizeStr } from "./measure";
@@ -10,43 +11,111 @@ import type { Gender, SizeStr } from "./measure";
 export type Fit = "slim" | "regular" | "relaxed";
 export type Region = "US" | "UK" | "EU" | "IN" | "JP" | "CN" | "AU";
 export type GarmentClass =
-  | "bottom"    // trousers, jeans
-  | "top"       // shirts, t-shirts
-  | "outerwear" // jackets, coats
-  | "dress";    // dresses, gowns
+  | "bottom"    // trousers, jeans, skirts
+  | "top"       // shirts, t-shirts, blouses
+  | "outerwear" // jackets, coats, hoodies
+  | "dress";    // dresses, gowns, jumpsuits, formal wear
 
 /* ─────────────────────────────────────────────
-   Population-average waist-to-height ratios per size.
-   Same source as the legacy component, extended per fit.
+   Population-average measurement-to-height ratios per size.
+   Bottoms use waist-to-height ratio.
+   Tops, outerwear, and dresses use chest/bust-to-height ratio.
 ───────────────────────────────────────────── */
 export interface SizeRow {
   size: SizeStr;
-  waistMax: number; // upper bound of waist/height for this size
+  waistMax: number; // upper bound of measurement/height for this size
 }
 
-const MEN_BASE: SizeRow[] = [
-  { size: "S",   waistMax: 0.48  },
-  { size: "M",   waistMax: 0.535 },
-  { size: "L",   waistMax: 0.595 },
-  { size: "XL",  waistMax: 0.655 },
-  { size: "XXL", waistMax: 0.715 },
+/* ─────────────────────────────────────────────
+   1. Bottoms (Waist-to-Height Ratio)
+───────────────────────────────────────────── */
+const MEN_BOTTOM: SizeRow[] = [
+  { size: "XS",  waistMax: 0.420 },
+  { size: "S",   waistMax: 0.460 },
+  { size: "M",   waistMax: 0.505 },
+  { size: "L",   waistMax: 0.555 },
+  { size: "XL",  waistMax: 0.610 },
+  { size: "XXL", waistMax: 0.670 },
 ];
 
-const WOMEN_BASE: SizeRow[] = [
-  { size: "XS",  waistMax: 0.415 },
-  { size: "S",   waistMax: 0.445 },
-  { size: "M",   waistMax: 0.475 },
-  { size: "L",   waistMax: 0.525 },
-  { size: "XL",  waistMax: 0.59  },
-  { size: "XXL", waistMax: 0.65  },
+const WOMEN_BOTTOM: SizeRow[] = [
+  { size: "XS",  waistMax: 0.395 },
+  { size: "S",   waistMax: 0.430 },
+  { size: "M",   waistMax: 0.470 },
+  { size: "L",   waistMax: 0.515 },
+  { size: "XL",  waistMax: 0.575 },
+  { size: "XXL", waistMax: 0.635 },
+];
+
+/* ─────────────────────────────────────────────
+   2. Tops (Chest-to-Height Ratio)
+───────────────────────────────────────────── */
+const MEN_TOP: SizeRow[] = [
+  { size: "XS",  waistMax: 0.495 },
+  { size: "S",   waistMax: 0.540 },
+  { size: "M",   waistMax: 0.590 },
+  { size: "L",   waistMax: 0.640 },
+  { size: "XL",  waistMax: 0.690 },
+  { size: "XXL", waistMax: 0.740 },
+];
+
+const WOMEN_TOP: SizeRow[] = [
+  { size: "XS",  waistMax: 0.495 },
+  { size: "S",   waistMax: 0.535 },
+  { size: "M",   waistMax: 0.575 },
+  { size: "L",   waistMax: 0.625 },
+  { size: "XL",  waistMax: 0.680 },
+  { size: "XXL", waistMax: 0.735 },
+];
+
+/* ─────────────────────────────────────────────
+   3. Outerwear (Chest-to-Height Ratio, with Layering Ease)
+───────────────────────────────────────────── */
+const MEN_OUTERWEAR: SizeRow[] = [
+  { size: "XS",  waistMax: 0.510 },
+  { size: "S",   waistMax: 0.555 },
+  { size: "M",   waistMax: 0.605 },
+  { size: "L",   waistMax: 0.655 },
+  { size: "XL",  waistMax: 0.705 },
+  { size: "XXL", waistMax: 0.755 },
+];
+
+const WOMEN_OUTERWEAR: SizeRow[] = [
+  { size: "XS",  waistMax: 0.510 },
+  { size: "S",   waistMax: 0.550 },
+  { size: "M",   waistMax: 0.590 },
+  { size: "L",   waistMax: 0.640 },
+  { size: "XL",  waistMax: 0.695 },
+  { size: "XXL", waistMax: 0.750 },
+];
+
+/* ─────────────────────────────────────────────
+   4. Dresses & Formal Wear (Chest/Bust-to-Height Ratio, Tailored)
+───────────────────────────────────────────── */
+const MEN_DRESS: SizeRow[] = [
+  { size: "XS",  waistMax: 0.485 },
+  { size: "S",   waistMax: 0.535 },
+  { size: "M",   waistMax: 0.585 },
+  { size: "L",   waistMax: 0.635 },
+  { size: "XL",  waistMax: 0.685 },
+  { size: "XXL", waistMax: 0.735 },
+];
+
+const WOMEN_DRESS: SizeRow[] = [
+  { size: "XS",  waistMax: 0.485 },
+  { size: "S",   waistMax: 0.525 },
+  { size: "M",   waistMax: 0.565 },
+  { size: "L",   waistMax: 0.615 },
+  { size: "XL",  waistMax: 0.670 },
+  { size: "XXL", waistMax: 0.725 },
 ];
 
 /* Fit adjustment to the upper bound of each size. */
 function withFit(rows: SizeRow[], fit: Fit): SizeRow[] {
-  // Slim:  tighten the upper bound (smaller waist fits in same size)
+  // Slim: tighten the upper bound (smaller measurement fits in same size)
   // Relaxed: loosen it
   const delta = fit === "slim" ? -0.015 : fit === "relaxed" ? 0.020 : 0;
-  return rows.map(r => ({ ...r, waistMax: r.waistMax + delta }));
+  return rows.map(r => ({ ...r, waistMax: +(r.waistMax + delta).toFixed(4) }));
 }
 
 /* Region adjustment. Numbers from published brand-size tables.
@@ -61,33 +130,8 @@ function withRegion(rows: SizeRow[], region: Region): SizeRow[] {
     JP: -0.025,  // JP sizes run smaller
     CN: -0.025,  // CN sizes run smaller
   };
-  return rows.map(r => ({ ...r, waistMax: r.waistMax + shift[region] }));
+  return rows.map(r => ({ ...r, waistMax: +(r.waistMax + shift[region]).toFixed(4) }));
 }
-
-/* ─────────────────────────────────────────────
-   Top / outerwear / dress tables use a chest-based
-   ratio (chest circumference / height), matching the
-   chestRatio used by recommendSizes. (The legacy draft
-   of this table held chest-diameter-to-height anchors —
-   roughly 2.7 times smaller than a circumference —
-   which made every chest ratio fall past the last row
-   and resolve to XXXL. Anchors below are diameter x 2.7.)
-───────────────────────────────────────────── */
-const TOP_MEN: SizeRow[] = [
-  { size: "S",   waistMax: 0.662 },
-  { size: "M",   waistMax: 0.702 },
-  { size: "L",   waistMax: 0.743 },
-  { size: "XL",  waistMax: 0.783 },
-  { size: "XXL", waistMax: 0.824 },
-];
-const TOP_WOMEN: SizeRow[] = [
-  { size: "XS",  waistMax: 0.608 },
-  { size: "S",   waistMax: 0.648 },
-  { size: "M",   waistMax: 0.689 },
-  { size: "L",   waistMax: 0.729 },
-  { size: "XL",  waistMax: 0.770 },
-  { size: "XXL", waistMax: 0.810 },
-];
 
 /* ─────────────────────────────────────────────
    Public API
@@ -116,15 +160,24 @@ export function sizeTable(
   fit: Fit,
   region: Region
 ): SizeTable {
-  if (garment === "bottom") {
-    return buildTable(
-      withRegion(withFit(gender === "male" ? MEN_BASE : WOMEN_BASE, fit), region)
-    );
+  let baseRows: SizeRow[];
+  switch (garment) {
+    case "bottom":
+      baseRows = gender === "male" ? MEN_BOTTOM : WOMEN_BOTTOM;
+      break;
+    case "top":
+      baseRows = gender === "male" ? MEN_TOP : WOMEN_TOP;
+      break;
+    case "outerwear":
+      baseRows = gender === "male" ? MEN_OUTERWEAR : WOMEN_OUTERWEAR;
+      break;
+    case "dress":
+      baseRows = gender === "male" ? MEN_DRESS : WOMEN_DRESS;
+      break;
+    default:
+      baseRows = gender === "male" ? MEN_BOTTOM : WOMEN_BOTTOM;
   }
-  // top / outerwear / dress: use chest-based table
-  return buildTable(
-    withRegion(withFit(gender === "male" ? TOP_MEN : TOP_WOMEN, fit), region)
-  );
+  return buildTable(withRegion(withFit(baseRows, fit), region));
 }
 
 export function waistRangeForSize(

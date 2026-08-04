@@ -115,10 +115,10 @@ async function loadModel(model: string): Promise<void> {
   const variant = model === "movenet-lightning"
     ? poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING
     : poseDetection.movenet.modelType.SINGLEPOSE_THUNDER;
-  detector = await poseDetection.createDetector(
+  detector = (await poseDetection.createDetector(
     poseDetection.SupportedModels.MoveNet,
     { modelType: variant }
-  );
+  )) as unknown as { estimatePoses(img: HTMLCanvasElement): Promise<{ keypoints: PoseKeypoint[] }[]> };
 }
 
 export {};

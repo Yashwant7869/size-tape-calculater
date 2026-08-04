@@ -164,17 +164,15 @@ export function computeMeasurements(inputs: Inputs): Measurements | null {
     hipW = hipWpx * frontCal.scaleCmPerPx;
     hipUnc = hipSigmaPx * frontCal.scaleCmPerPx;
   } else {
-    // No pose keypoints: derive from the waist using the same ratios as
-    // buildManualOverrideResult (relative to waist circumference).
-    // depthRatio() is scale-invariant, so relative widths are enough to
-    // size the provisional circumference first.
-    const shRel = gender === "male" ? 0.78 : 0.72;
-    const hipRel = gender === "male" ? 1.08 : 1.18;
-    const waistProv = circumferenceFromWidth(frontW, shRel, hipRel);
-    shoulderW = waistProv * shRel;
-    shoulderUnc = waistProv * shRel * 0.12 + 2;
-    hipW = waistProv * hipRel;
-    hipUnc = waistProv * hipRel * 0.10 + 2;
+    // No pose keypoints: derive from the waist using realistic body
+    // proportions for shoulder width and hip width.
+    const shFactor = gender === "male" ? 1.38 : 1.30;
+    const hipFactor = gender === "male" ? 1.15 : 1.22;
+    const waistProv = circumferenceFromWidth(frontW, 0.78, 1.08);
+    shoulderW = (waistProv / Math.PI) * shFactor;
+    shoulderUnc = shoulderW * 0.10 + 2;
+    hipW = (waistProv / Math.PI) * hipFactor;
+    hipUnc = hipW * 0.10 + 2;
   }
 
   // 7. Circumference — ellipse if side photo available, else body-shape estimate
@@ -211,17 +209,22 @@ export function computeMeasurements(inputs: Inputs): Measurements | null {
   }
 
   // 8. Chest and hip circumferences
-  // Without a true "chest" keypoint, we approximate chest diameter
-  // from shoulder width. For most adults, chest_diameter ≈ 0.95× shoulder
-  // (shoulder is slightly wider due to deltoid muscles). The chest
-  // depth/width ratio is ~0.70, so the conversion factor from diameter
-  // to circumference is ~2.7.
-  const chestWDiameterCm = shoulderW * 0.95;
-  const chestCm = chestWDiameterCm * 2.7;
-  const chestUnc = shoulderUnc * 0.95 * 2.7 + 3;
+  // We estimate chest circumference using a blended anthropometric model
+  // combining shoulder width (bi-acromial diameter) and waist circumference.
+  let chestCm: number;
+  if (gender === "male") {
+    const fromShoulder = shoulderW * 0.95 * 2.65;
+    const fromWaist = waistCm * 1.16;
+    chestCm = Math.max(fromWaist, fromShoulder * 0.55 + fromWaist * 0.45);
+  } else {
+    const fromShoulder = shoulderW * 0.95 * 2.60;
+    const fromWaist = waistCm * 1.22;
+    chestCm = Math.max(fromWaist, fromShoulder * 0.50 + fromWaist * 0.50);
+  }
+  const chestUnc = shoulderUnc * 1.5 + waistUncCm * 0.4 + 2;
   // Hip circumference — hip_diameter × ~2.55 (deeper body at the hips).
   const hipCircCm = hipW * 2.55;
-  const hipCircUnc = hipUnc * 2.55 + 3;
+  const hipCircUnc = hipUnc * 2.55 + 2;
 
   // 9. Inseam: ankle - hip keypoint vertical distance
   let inseamCm = 0, inseamUnc = 0;
@@ -279,10 +282,9 @@ function buildManualOverrideResult(inputs: Inputs): Measurements | null {
   const h = inputs.heightCm;
   const gender = inputs.gender;
   // Population average chest/hip/shoulder for the given waist.
-  // These are rough but reasonable.
-  const chestCm = gender === "male" ? w * 1.30 : w * 1.32;
-  const hipCm   = gender === "male" ? w * 1.08 : w * 1.18;
-  const shoulderW = gender === "male" ? w * 0.78 : w * 0.72;
+  const chestCm = gender === "male" ? w * 1.16 : w * 1.22;
+  const hipCm   = gender === "male" ? w * 1.06 : w * 1.16;
+  const shoulderW = gender === "male" ? (w / Math.PI) * 1.38 : (w / Math.PI) * 1.30;
   const inseamCm = h * 0.45;
   const plausibility = plausibilityCheckWaist(w, h, gender);
   const confidence = aggregateConfidence(
@@ -333,14 +335,17 @@ export function recommendSizes(
   // Brand override (per-garment) — if a brand row exists, prefer it.
   const overrideBottom = brand ? pickBrandSize(brandMap, brand, m.waistCm, "bottom") : null;
   const overrideTop = brand ? pickBrandSize(brandMap, brand, m.chestCm, "top") : null;
+  const overrideOuterwear = brand ? pickBrandSize(brandMap, brand, m.chestCm, "outerwear") : null;
+  const overrideDress = brand ? pickBrandSize(brandMap, brand, m.chestCm, "dress") : null;
 
   const bottom = overrideBottom
     ?? sizeTable(gender, "bottom", fit, region).pick(waistRatio);
   const top = overrideTop
     ?? sizeTable(gender, "top", fit, region).pick(chestRatio);
-  const outerwear = overrideTop
+  const outerwear = overrideOuterwear
     ?? sizeTable(gender, "outerwear", fit, region).pick(chestRatio);
-  const dress = sizeTable(gender, "dress", fit, region).pick(chestRatio);
+  const dress = overrideDress
+    ?? sizeTable(gender, "dress", fit, region).pick(chestRatio);
 
   return { bottom, top, outerwear, dress, source };
 }
