@@ -20,13 +20,20 @@ export function useSegmenter() {
       .then((s) => {
         if (cancelled) return;
         setSegmenter(s);
-        // Wait until the model has actually produced a result.
+        // Wait until the model has actually produced a result — but give
+        // up after ~25 s instead of polling for the whole session.
+        let tries = 0;
         const id = setInterval(() => {
+          tries++;
           if (cancelled) { clearInterval(id); return; }
           if (s.ready) {
             clearInterval(id);
             setReady(true);
             setStatus("Body outline ready");
+          } else if (tries >= 250) {
+            clearInterval(id);
+            setError("Body outline scanner could not load — width will be estimated from keypoints only.");
+            setStatus("Body outline unavailable");
           }
         }, 100);
       })

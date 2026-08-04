@@ -66,23 +66,27 @@ function withRegion(rows: SizeRow[], region: Region): SizeRow[] {
 
 /* ─────────────────────────────────────────────
    Top / outerwear / dress tables use a chest-based
-   ratio (chest / height). We provide only population
-   averages — these are the typical anchors.
+   ratio (chest circumference / height), matching the
+   chestRatio used by recommendSizes. (The legacy draft
+   of this table held chest-diameter-to-height anchors —
+   roughly 2.7 times smaller than a circumference —
+   which made every chest ratio fall past the last row
+   and resolve to XXXL. Anchors below are diameter x 2.7.)
 ───────────────────────────────────────────── */
 const TOP_MEN: SizeRow[] = [
-  { size: "S",   waistMax: 0.245 },
-  { size: "M",   waistMax: 0.260 },
-  { size: "L",   waistMax: 0.275 },
-  { size: "XL",  waistMax: 0.290 },
-  { size: "XXL", waistMax: 0.305 },
+  { size: "S",   waistMax: 0.662 },
+  { size: "M",   waistMax: 0.702 },
+  { size: "L",   waistMax: 0.743 },
+  { size: "XL",  waistMax: 0.783 },
+  { size: "XXL", waistMax: 0.824 },
 ];
 const TOP_WOMEN: SizeRow[] = [
-  { size: "XS",  waistMax: 0.225 },
-  { size: "S",   waistMax: 0.240 },
-  { size: "M",   waistMax: 0.255 },
-  { size: "L",   waistMax: 0.270 },
-  { size: "XL",  waistMax: 0.285 },
-  { size: "XXL", waistMax: 0.300 },
+  { size: "XS",  waistMax: 0.608 },
+  { size: "S",   waistMax: 0.648 },
+  { size: "M",   waistMax: 0.689 },
+  { size: "L",   waistMax: 0.729 },
+  { size: "XL",  waistMax: 0.770 },
+  { size: "XXL", waistMax: 0.810 },
 ];
 
 /* ─────────────────────────────────────────────
