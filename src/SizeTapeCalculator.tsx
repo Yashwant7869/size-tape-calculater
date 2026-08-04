@@ -6,6 +6,7 @@ import { useEffect, useRef, useState, useCallback, PointerEvent as ReactPointerE
 type Gender = "male" | "female";
 type SizeStr = "XS" | "S" | "M" | "L" | "XL" | "XXL" | "XXXL";
 type PhotoType = "front" | "side";
+type CameraFacing = "user" | "environment";
 type CalibrationMethod = "height" | "card";
 
 interface KP { x: number; y: number; score: number; name: string }
@@ -141,6 +142,12 @@ const GLOBAL_CSS = `
   .st-camera-status{display:flex;align-items:center;gap:9px;margin-top:12px;padding:11px 13px;border-radius:9px;background:var(--chalk);color:#5b6478;font-size:12.5px;line-height:1.4;}
   .st-camera-status.error{background:#faf1e8;color:#a5652a;}
   .st-camera-status .st-spinner{border-color:currentColor;border-top-color:transparent;}
+  .st-camera-switch{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px;}
+  .st-camera-switch-label{font-size:12px;font-weight:600;color:#697386;margin-right:2px;}
+  .st-camera-switch-btn{border:1.5px solid var(--line);border-radius:8px;padding:8px 11px;background:var(--paper);color:#5b6478;font-size:12px;font-weight:700;cursor:pointer;transition:.15s;}
+  .st-camera-switch-btn:hover:not(:disabled){border-color:var(--brass);background:#fff;}
+  .st-camera-switch-btn.active{border-color:var(--ink);background:var(--ink);color:#fff;}
+  .st-camera-switch-btn:disabled{cursor:default;opacity:1;}
   .st-cam-controls{display:flex;gap:10px;margin-top:10px;}
   .st-photo-stage{position:relative;display:inline-block;max-width:100%;margin-top:16px;touch-action:none;overflow:hidden;border-radius:10px;background:#0000000d;}
   .st-zoom-wrap{position:relative;display:inline-block;transform-origin:center center;transition:transform .08s ease-out;}
@@ -267,6 +274,8 @@ export default function SizeTapeCalculator() {
   const [cameraStarting, setCameraStarting] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [cameraFacing, setCameraFacing] = useState<CameraFacing>("environment");
+  const [cameraStreamVersion, setCameraStreamVersion] = useState(0);
   const [activePhotoType, setActivePhotoType] = useState<PhotoType>("front");
   
   // Front photo state
@@ -573,8 +582,9 @@ export default function SizeTapeCalculator() {
     return "We could not open the camera. Please try again or upload a photo from your gallery.";
   }
 
-  async function startCamera() {
-    if (cameraStarting || camActive) return;
+  async function startCamera(facing: CameraFacing = cameraFacing) {
+    // Do not reopen the already-selected camera, but allow a live switch to the other one.
+    if (cameraStarting || (camActive && facing === cameraFacing)) return;
 
     if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
       setCameraError("Camera access requires a secure HTTPS connection. Open this page over HTTPS and try again.");
@@ -586,16 +596,22 @@ export default function SizeTapeCalculator() {
     setCameraReady(false);
     setCameraError(null);
 
-    // A previous stream can keep the camera busy on some mobile browsers.
+    // Mobile browsers generally require the current camera track to be stopped before opening
+    // the other facing mode. Clear the old preview while the selected camera is opening.
     stopStream(camStreamRef.current);
     camStreamRef.current = null;
+    if (videoRef.current) {
+      videoRef.current.pause();
+      videoRef.current.srcObject = null;
+    }
+    if (camActive) setCamActive(false);
 
     try {
-      // `ideal` asks for the rear camera without rejecting devices that only have a front webcam.
+      // `ideal` honours the selected camera when it exists and still works on devices with one camera.
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: false,
         video: {
-          facingMode: { ideal: "environment" },
+          facingMode: { ideal: facing },
           width: { ideal: 1280 },
           height: { ideal: 720 },
         },
@@ -608,6 +624,9 @@ export default function SizeTapeCalculator() {
       }
 
       camStreamRef.current = stream;
+      setCameraFacing(facing);
+      // Trigger the preview attachment effect even when React batches a live camera switch.
+      setCameraStreamVersion(version => version + 1);
       setCamActive(true);
     } catch (error) {
       if (cameraRequestRef.current === requestId) {
@@ -685,7 +704,7 @@ export default function SizeTapeCalculator() {
         video.srcObject = null;
       }
     };
-  }, [camActive]);
+  }, [camActive, cameraStreamVersion]);
 
   // Always release the hardware camera if the component is removed from the page.
   useEffect(() => () => {
@@ -1171,6 +1190,27 @@ export default function SizeTapeCalculator() {
                   if (video && video.videoWidth > 0 && video.videoHeight > 0) setCameraReady(true);
                 }}
               />
+              <div className="st-camera-switch" role="group" aria-label="Choose which camera to use">
+                <span className="st-camera-switch-label">Camera</span>
+                <button
+                  type="button"
+                  className={`st-camera-switch-btn ${cameraFacing === "user" ? "active" : ""}`}
+                  aria-pressed={cameraFacing === "user"}
+                  disabled={cameraStarting || cameraFacing === "user"}
+                  onClick={() => { void startCamera("user"); }}
+                >
+                  Front camera
+                </button>
+                <button
+                  type="button"
+                  className={`st-camera-switch-btn ${cameraFacing === "environment" ? "active" : ""}`}
+                  aria-pressed={cameraFacing === "environment"}
+                  disabled={cameraStarting || cameraFacing === "environment"}
+                  onClick={() => { void startCamera("environment"); }}
+                >
+                  Rear camera
+                </button>
+              </div>
               {!cameraReady && (
                 <div className="st-camera-status" role="status">
                   <div className="st-spinner" aria-hidden="true" />
