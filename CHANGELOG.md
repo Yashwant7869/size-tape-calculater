@@ -1,25 +1,37 @@
-# Changelog — accuracy improvements
+# Changelog — accuracy improvements & garment sizing calibration
 
-This release implements the full 15-item priority list from
-[`SCOPE_OF_IMPROVEMENT.md`](./SCOPE_OF_IMPROVEMENT.md).
+## Size chart calibration fixes (Bottoms, Tops, Outerwear, Dresses)
 
-The single biggest change is **silhouette-based width measurement
-(§3.2)** combined with a **body-shape-aware single-photo multiplier
-(§3.3)** and a **stricter keypoint quality gate (§1.2)**. Together they
-reduce synthetic-dataset waist MAE by an order of magnitude vs the v1
-constant-multiplier approach.
+Fixed systematic sizing and measurement calibration bugs that caused inaccurate sizes across all four garment classes (`bottom`, `top`, `outerwear`, `dress`):
+
+- **Bottoms (`MEN_BOTTOM`, `WOMEN_BOTTOM`)**:
+  - Added the missing `"XS"` row to men's bottom sizing.
+  - Re-calibrated waist-to-height ratio thresholds (`waistMax`) for both men and women to match standard international apparel sizing (e.g., US/UK/EU standard waist circumferences per height). Previously, S/M/L/XL thresholds were shifted by 1–2 sizes too large.
+- **Tops (`MEN_TOP`, `WOMEN_TOP`)**:
+  - Replaced legacy diameter-to-height anchors (`0.662` for S in men, `0.608` for XS in women) with calibrated chest/bust-to-height ratio thresholds. Previously, any male chest up to 116 cm returned `"S"` and any female bust up to 100 cm returned `"XS"`.
+- **Outerwear (`MEN_OUTERWEAR`, `WOMEN_OUTERWEAR`)**:
+  - Introduced dedicated outerwear tables with layering ease (+0.015 ratio allowance) so outerwear sizing correctly fits over shirts and sweaters across Slim, Regular, and Relaxed fits.
+- **Dresses & Formal Wear (`MEN_DRESS`, `WOMEN_DRESS`)**:
+  - Introduced dedicated dress tables with tailored bust-to-height thresholds for women's dresses/gowns and men's formal wear.
+- **Measurement calculation enhancements (`useMeasurements.ts`)**:
+  - Upgraded chest circumference (`chestCm`) estimation to use a blended anthropometric model combining shoulder biacromial diameter (`shoulderW`) and measured waist circumference (`waistCm`).
+  - Fixed fallback and manual-override multipliers to realistic human proportions (`1.16` for men, `1.22` for women).
+  - Fixed Ramanujan ellipse diameter-to-circumference scaling in synthetic evaluation (`Math.PI * 1.8` for depth/width ratio 0.8), eliminating a 6% systematic waist overestimation.
+  - Fixed TypeScript types in `poseWorker.ts` so `npm run typecheck` passes cleanly.
 
 ## Eval results
 
 1000 synthetic samples (random heights, weights, body shapes):
 
-| metric | before (v1) | after (this build) |
+| metric | before (v1) | after (calibrated sizing) |
 |---|---|---|
-| Waist MAE | (not measured) | **3.70 cm** |
-| Waist RMSE | (not measured) | **3.95 cm** |
-| Chest MAE | (not measured) | **1.67 cm** |
-| Size exact-match | (not measured) | **67.2 %** |
-| Size ±1 | (not measured) | **100.0 %** |
+| Waist MAE | 3.70 cm | **0.89 cm** |
+| Waist RMSE | 3.95 cm | **1.08 cm** |
+| Chest MAE | 1.67 cm | **2.52 cm** |
+| Bottom exact-match | 67.2 % | **89.0 %** (100% within ±1) |
+| Top exact-match | 15.5 % | **72.9 %** (100% within ±1) |
+| Outerwear exact-match | 16.5 % | **75.5 %** (100% within ±1) |
+| Dress exact-match | 17.7 % | **72.0 %** (100% within ±1) |
 
 Run yourself:
 

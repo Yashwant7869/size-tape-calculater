@@ -1808,7 +1808,14 @@ export default function SizeTapeCalculator() {
                   <thead>
                     <tr>
                       <th>Size</th>
-                      <th>{garment === "bottom" ? "Waist" : "Chest"} range for your height ({garment === "bottom" ? "cm" : "cm"})</th>
+                      <th>
+                        {garment === "bottom"
+                          ? "Waist"
+                          : garment === "dress"
+                            ? "Chest / Bust"
+                            : "Chest"}{" "}
+                        range for your height (cm)
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
