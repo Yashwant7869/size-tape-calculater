@@ -1,0 +1,69 @@
+{
+  "name": "size-tape-calculator",
+  "version": "1.0.0",
+  "description": "React component jo front + side photos se clothing size estimate karta hai — TensorFlow.js MoveNet pose detection aur Ramanujan ellipse formula ke saath. Sab kuch browser mein chalta hai, koi server nahi.",
+  "keywords": [
+    "react",
+    "react-component",
+    "size-calculator",
+    "clothing-size",
+    "waist-measurement",
+    "body-measurement",
+    "pose-detection",
+    "tensorflowjs",
+    "movenet",
+    "ai"
+  ],
+  "license": "MIT",
+  "author": "Yashwant Singh Gour",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Yashwant7869/size-tape-calculater.git"
+  },
+  "homepage": "https://github.com/Yashwant7869/size-tape-calculater#readme",
+  "bugs": {
+    "url": "https://github.com/Yashwant7869/size-tape-calculater/issues"
+  },
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "dev": "vite --host",
+    "build": "tsup",
+    "build:demo": "vite build",
+    "preview": "vite preview --host",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "peerDependencies": {
+    "react": ">=17.0.0",
+    "react-dom": ">=17.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "clsx": "^2.1.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tailwind-merge": "^2.5.2",
+    "tsup": "^8.3.5",
+    "typescript": "^5.6.0",
+    "vite": "^7.1.0"
+  }
+}

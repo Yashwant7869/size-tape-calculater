@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback, PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, useRef, useState, useCallback, PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from "react";
 
 /* ─────────────────────────────────────────────
    Types
@@ -183,7 +183,7 @@ const GLOBAL_CSS = `
 /* ─────────────────────────────────────────────
    Component
 ───────────────────────────────────────────── */
-export default function App() {
+export default function SizeTapeCalculator() {
   /* ── Step 1 state ── */
   const [gender, setGender] = useState<Gender | null>(null);
   const [heightVal, setHeightVal] = useState("");
@@ -335,7 +335,7 @@ export default function App() {
     return nz;
   });
 
-  function handleWheel(e: React.WheelEvent) {
+  function handleWheel(e: ReactWheelEvent) {
     e.preventDefault();
     const delta = e.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP;
     setZoom(z => {
