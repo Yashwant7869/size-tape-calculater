@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState, useCallback, PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from "react";
+import type { ReactElement } from "react";
+import type { SizeTapeCalculatorProps } from "./types";
 
 /* ─────────────────────────────────────────────
    Local types & helpers
@@ -8,10 +10,6 @@ type SizeStr = "XS" | "S" | "M" | "L" | "XL" | "XXL" | "XXXL";
 type PhotoType = "front" | "side";
 type CameraFacing = "user" | "environment";
 type CalibrationMethod = "height" | "card";
-type Fit = "slim" | "regular" | "relaxed";
-type Region = "US" | "UK" | "EU" | "IN" | "JP" | "CN" | "AU";
-type GarmentClass = "bottom" | "top" | "outerwear" | "dress";
-type PoseModelKind = "movenet-thunder" | "movenet-lightning" | "blazepose";
 
 import {
   type KeypointWithNoise,
@@ -20,7 +18,7 @@ import {
 } from "./utils/measure";
 import {
   sizeTable, waistRangeForSize, type SizeRow,
-  type BrandMap,
+  type BrandMap, type Fit, type GarmentClass, type Region,
 } from "./utils/sizeTables";
 import {
   gateKeypoints, validateOrientation,
@@ -33,42 +31,38 @@ import {
   type CalibrationInput, type CalibrationEstimate,
 } from "./utils/calibration";
 import { silhouetteWidthAveraged, type SilhouetteWidth } from "./utils/segmentation";
-import { useWorkerDetector } from "./hooks/useWorkerDetector";
+import { useWorkerDetector, type WorkerPoseModel } from "./hooks/useWorkerDetector";
 import { useSegmenter } from "./hooks/useSegmenter";
 import {
   computeMeasurements, recommendSizes,
   type DetectionResult, type Measurements, type Recommendations,
 } from "./hooks/useMeasurements";
 
-declare global {
-  interface Window {
-    tf?: unknown;
-    SelfieSegmentation?: unknown;
-  }
-}
-
 /* ─────────────────────────────────────────────
-   Inline styles (CSS kept identical to v1 so the
-   user-visible design doesn't change, with a few
-   new selectors appended for the new UI).
+   Component styles
+
+   The rules are namespaced to the calculator root and deliberately avoid
+   changing host-page body, root, universal-selector, or font defaults.
 ───────────────────────────────────────────── */
 const GLOBAL_CSS = `
-  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
-  :root{
+  .st-root{
     --ink:#1B2A4A;--brass:#B08D57;--chalk:#EDE7DD;--stitch:#C1443C;
     --sage:#7A8B6F;--paper:#F7F4EE;--line:#D8D0BF;--blue:#3B82F6;
+    --st-font-sans:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    --st-font-serif:ui-serif,Georgia,Cambria,"Times New Roman",serif;
+    --st-font-mono:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace;
+    margin:0;background:var(--paper);color:var(--ink);font-family:var(--st-font-sans);padding:0 0 60px;
   }
-  *{box-sizing:border-box;}
-  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Inter',sans-serif;padding:0 0 60px;}
-  button,input,select{font:inherit;}
-  button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:3px solid rgba(59,130,246,.28);outline-offset:3px;}
+  .st-root,.st-root *,.st-root *:before,.st-root *:after{box-sizing:border-box;}
+  .st-root button,.st-root input,.st-root select{font:inherit;}
+  .st-root button:focus-visible,.st-root input:focus-visible,.st-root select:focus-visible,.st-root summary:focus-visible{outline:3px solid rgba(59,130,246,.28);outline-offset:3px;}
   .st-wrap{max-width:860px;margin:0 auto;padding:28px 20px 0;}
   .st-tape{height:8px;background:linear-gradient(90deg,var(--ink),var(--brass),var(--stitch));}
   .st-header{position:relative;overflow:hidden;padding:38px;border:1px solid var(--line);border-radius:20px;background:linear-gradient(145deg,#fff 0%,#f8f3e9 100%);box-shadow:0 18px 50px rgba(27,42,74,.08);}
   .st-header:after{content:"";position:absolute;width:240px;height:240px;border:46px solid rgba(176,141,87,.08);border-radius:50%;right:-105px;top:-130px;pointer-events:none;z-index:0;}
   .st-header > *{position:relative;z-index:1;}
-  .st-eyebrow{font-family:'IBM Plex Mono',monospace;font-size:11.5px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--brass);margin:0 0 9px;}
-  .st-h1{font-family:'Fraunces',serif;font-weight:600;font-size:clamp(34px,6vw,50px);margin:0 0 12px;line-height:1.05;max-width:650px;letter-spacing:-.02em;}
+  .st-eyebrow{font-family:var(--st-font-mono);font-size:11.5px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--brass);margin:0 0 9px;}
+  .st-h1{font-family:var(--st-font-serif);font-weight:600;font-size:clamp(34px,6vw,50px);margin:0 0 12px;line-height:1.05;max-width:650px;letter-spacing:-.02em;}
   .st-header-copy{margin:0;color:#5b6478;font-size:16px;line-height:1.65;max-width:62ch;position:relative;z-index:1;}
   .st-hero-actions{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:24px;position:relative;z-index:1;}
   .st-hero-btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;border:0;border-radius:10px;padding:13px 19px;background:var(--ink);color:#fff;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 8px 20px rgba(27,42,74,.16);transition:transform .15s,box-shadow .15s;}
@@ -83,34 +77,34 @@ const GLOBAL_CSS = `
   .st-dot.busy{background:var(--brass);animation:st-pulse 1s infinite;}
   .st-quick-flow{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;margin-top:24px;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--line);position:relative;z-index:1;}
   .st-flow-item{display:flex;align-items:center;gap:10px;padding:12px 14px;background:rgba(255,255,255,.82);}
-  .st-flow-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex:0 0 auto;background:var(--chalk);color:var(--ink);font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;}
+  .st-flow-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex:0 0 auto;background:var(--chalk);color:var(--ink);font-family:var(--st-font-mono);font-size:11px;font-weight:700;}
   .st-flow-item strong{display:block;font-size:12.5px;line-height:1.25;}
   .st-flow-item small{display:block;margin-top:2px;color:#858c99;font-size:10.5px;}
   @keyframes st-pulse{0%,100%{opacity:1}50%{opacity:.3}}
   .st-step{margin-top:28px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:24px;position:relative;transition:opacity .2s;}
   .st-step.locked{opacity:.45;pointer-events:none;}
   .st-step-head{display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap;}
-  .st-num{font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:13px;width:28px;height:28px;border-radius:50%;border:1.5px solid var(--ink);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .st-num{font-family:var(--st-font-mono);font-weight:600;font-size:13px;width:28px;height:28px;border-radius:50%;border:1.5px solid var(--ink);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
   .st-hint{font-size:12.5px;color:#8a8f9c;margin-left:auto;}
   .st-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}
   .st-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:14px;}
   .st-label{display:block;font-size:12.5px;font-weight:600;color:#5b6478;margin-bottom:6px;letter-spacing:.02em;}
-  .st-input{width:100%;padding:12px 14px;border:1.5px solid var(--line);border-radius:9px;font-family:'IBM Plex Mono',monospace;font-size:16px;background:var(--paper);color:var(--ink);}
+  .st-input{width:100%;padding:12px 14px;border:1.5px solid var(--line);border-radius:9px;font-family:var(--st-font-mono);font-size:16px;background:var(--paper);color:var(--ink);}
   .st-input:focus{outline:none;border-color:var(--brass);}
-  .st-select{width:100%;padding:12px 14px;border:1.5px solid var(--line);border-radius:9px;font-family:'Inter',sans-serif;font-size:14px;background:var(--paper);color:var(--ink);}
+  .st-select{width:100%;padding:12px 14px;border:1.5px solid var(--line);border-radius:9px;font-family:var(--st-font-sans);font-size:14px;background:var(--paper);color:var(--ink);}
   .st-select:focus{outline:none;border-color:var(--brass);}
   .st-gtoggle{display:flex;gap:8px;margin-bottom:14px;}
-  .st-gbtn{flex:1;padding:12px;border:1.5px solid var(--line);background:var(--paper);border-radius:9px;font-family:'Inter',sans-serif;font-weight:600;font-size:14px;cursor:pointer;color:#5b6478;transition:.15s;}
+  .st-gbtn{flex:1;padding:12px;border:1.5px solid var(--line);background:var(--paper);border-radius:9px;font-family:var(--st-font-sans);font-weight:600;font-size:14px;cursor:pointer;color:#5b6478;transition:.15s;}
   .st-gbtn.active{border-color:var(--ink);background:var(--ink);color:#fff;}
   .st-gbtn.blue{border-color:var(--blue);background:var(--blue);color:#fff;}
-  .st-btn{display:inline-flex;align-items:center;gap:8px;background:var(--stitch);color:#fff;border:none;border-radius:9px;padding:12px 20px;font-family:'Inter',sans-serif;font-weight:600;font-size:14.5px;cursor:pointer;transition:.15s;margin-top:6px;}
+  .st-btn{display:inline-flex;align-items:center;gap:8px;background:var(--stitch);color:#fff;border:none;border-radius:9px;padding:12px 20px;font-family:var(--st-font-sans);font-weight:600;font-size:14.5px;cursor:pointer;transition:.15s;margin-top:6px;}
   .st-btn:hover{filter:brightness(1.06);}
   .st-btn.secondary{background:transparent;color:var(--ink);border:1.5px solid var(--ink);}
   .st-btn.ghost{background:transparent;color:#8a8f9c;border:1px dashed var(--line);}
   .st-btn.blue{background:var(--blue);}
   .st-btn:disabled{opacity:.4;cursor:not-allowed;}
-  .st-baseline{margin-top:16px;padding:14px 16px;background:var(--chalk);border-radius:10px;font-family:'IBM Plex Mono',monospace;font-size:13.5px;}
-  .st-baseline b{font-family:'Fraunces',serif;font-size:17px;}
+  .st-baseline{margin-top:16px;padding:14px 16px;background:var(--chalk);border-radius:10px;font-family:var(--st-font-mono);font-size:13.5px;}
+  .st-baseline b{font-family:var(--st-font-serif);font-size:17px;}
   .st-upload-choices{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
   .st-upload-zone{border:1.5px dashed #bfc6d1;border-radius:12px;padding:22px 14px;text-align:center;cursor:pointer;background:#fff;transition:border-color .15s,background .15s,transform .15s;}
   .st-upload-zone:hover{border-color:var(--brass);background:#fffcf7;transform:translateY(-1px);}
@@ -141,24 +135,24 @@ const GLOBAL_CSS = `
   .st-spinner{width:14px;height:14px;border:2px solid var(--brass);border-top-color:transparent;border-radius:50%;animation:st-spin .7s linear infinite;flex-shrink:0;}
   @keyframes st-spin{to{transform:rotate(360deg)}}
   .st-zoom-controls{display:flex;align-items:center;gap:8px;margin-top:12px;flex-wrap:wrap;}
-  .st-zctrl{width:38px;height:38px;border-radius:9px;border:1.5px solid var(--line);background:var(--paper);font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:600;color:var(--ink);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.15s;}
+  .st-zctrl{width:38px;height:38px;border-radius:9px;border:1.5px solid var(--line);background:var(--paper);font-family:var(--st-font-mono);font-size:16px;font-weight:600;color:var(--ink);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.15s;}
   .st-zctrl:hover{border-color:var(--brass);background:#fff;}
   .st-zctrl:active{transform:scale(.92);}
   .st-zgroup{display:flex;gap:6px;}
-  .st-zlabel{font-size:11.5px;color:#8a8f9c;font-family:'IBM Plex Mono',monospace;margin-right:2px;}
+  .st-zlabel{font-size:11.5px;color:#8a8f9c;font-family:var(--st-font-mono);margin-right:2px;}
   .st-reset-z{padding:0 12px;width:auto;font-size:12px;font-weight:600;color:#8a8f9c;background:transparent;border:1px dashed var(--line);}
   .st-result-hero{text-align:center;padding:30px 20px;background:var(--ink);color:#fff;border-radius:12px;}
   .st-result-hero .st-eyebrow{color:var(--brass);opacity:1;}
-  .st-size-big{font-family:'Fraunces',serif;font-size:64px;font-weight:700;margin:6px 0;}
+  .st-size-big{font-family:var(--st-font-serif);font-size:64px;font-weight:700;margin:6px 0;}
   .st-result-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:18px;}
   .st-result-card{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:14px 16px;}
-  .st-result-card .val{font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:600;}
+  .st-result-card .val{font-family:var(--st-font-mono);font-size:20px;font-weight:600;}
   .st-result-card .val.with-unc{font-size:16px;}
   .st-result-card .unc{font-size:11.5px;color:#8a8f9c;font-weight:500;}
   .st-flag{margin-top:14px;padding:12px 14px;border-radius:9px;font-size:13px;line-height:1.5;}
   .st-flag.ok{background:#eef3ea;color:var(--sage);}
   .st-flag.warn{background:#faf1e8;color:#a5652a;}
-  table.st-sizechart{width:100%;border-collapse:collapse;margin-top:16px;font-family:'IBM Plex Mono',monospace;font-size:12.5px;}
+  table.st-sizechart{width:100%;border-collapse:collapse;margin-top:16px;font-family:var(--st-font-mono);font-size:12.5px;}
   table.st-sizechart th,table.st-sizechart td{border:1px solid var(--line);padding:8px 10px;text-align:center;}
   table.st-sizechart th{background:var(--chalk);}
   .st-size-row.hit{background:var(--stitch);color:#fff;font-weight:700;}
@@ -170,13 +164,13 @@ const GLOBAL_CSS = `
   .st-measure-details{margin-top:12px;border:1px solid var(--line);border-radius:10px;background:#fff;overflow:hidden;}
   .st-measure-details summary{padding:12px 14px;color:#5b6478;font-size:12px;font-weight:600;cursor:pointer;list-style:none;}
   .st-measure-details summary::-webkit-details-marker{display:none;}
-  .st-measure-details summary:after{content:"+";float:right;font-family:'IBM Plex Mono',monospace;}
+  .st-measure-details summary:after{content:"+";float:right;font-family:var(--st-font-mono);}
   .st-measure-details[open] summary:after{content:"−";}
   .st-measure-details p{margin:0;padding:0 14px 14px;color:#7a8290;font-size:11.5px;line-height:1.6;}
   .st-handle{cursor:grab;}
   .st-handle:active{cursor:grabbing;}
   .st-tabs{display:flex;gap:8px;margin-bottom:16px;}
-  .st-tab{flex:1;padding:10px 14px;border:1.5px solid var(--line);background:var(--paper);border-radius:9px;font-family:'Inter',sans-serif;font-weight:600;font-size:13px;cursor:pointer;color:#5b6478;transition:.15s;text-align:center;}
+  .st-tab{flex:1;padding:10px 14px;border:1.5px solid var(--line);background:var(--paper);border-radius:9px;font-family:var(--st-font-sans);font-weight:600;font-size:13px;cursor:pointer;color:#5b6478;transition:.15s;text-align:center;}
   .st-tab.active{border-color:var(--brass);background:var(--brass);color:#fff;}
   .st-tab .icon{font-size:18px;display:block;margin-bottom:4px;}
   .st-confidence{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--chalk);border-radius:8px;margin-top:12px;font-size:13px;}
@@ -202,11 +196,11 @@ const GLOBAL_CSS = `
   .st-photo-thumb .label{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.7);color:#fff;font-size:11px;padding:4px 8px;text-align:center;}
   .st-photo-thumb .remove{position:absolute;top:4px;right:4px;width:20px;height:20px;border-radius:50%;background:rgba(0,0,0,0.6);color:#fff;border:none;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;}
   .st-card-overlay{position:absolute;border:2px dashed var(--blue);background:rgba(59,130,246,0.1);cursor:move;}
-  .st-accuracy-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:600;font-family:'IBM Plex Mono',monospace;}
+  .st-accuracy-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:600;font-family:var(--st-font-mono);}
   .st-accuracy-badge.high{background:#dcfce7;color:#15803d;}
   .st-accuracy-badge.medium{background:#fef3c7;color:#a16207;}
   .st-accuracy-badge.low{background:#fee2e2;color:#b91c1c;}
-  .st-step h2{font-family:'Fraunces',serif;font-size:20px;font-weight:600;margin:0;}
+  .st-step h2{font-family:var(--st-font-serif);font-size:20px;font-weight:600;margin:0;}
   .st-saved{display:flex;align-items:center;gap:10px;margin-top:16px;padding:12px 14px;border-radius:10px;background:#eef3ea;color:#53644b;font-size:12.5px;line-height:1.45;}
   .st-saved-mark{width:22px;height:22px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;border-radius:50%;background:#d7e5d0;font-size:11px;font-weight:800;}
   .st-result-note{margin-top:16px;padding:13px 15px;border:1px solid #dbe1e8;border-radius:10px;background:#f8fafc;color:#657083;font-size:12px;line-height:1.55;}
@@ -218,23 +212,23 @@ const GLOBAL_CSS = `
   .st-sub-score .lbl{flex:0 0 110px;color:#5b6478;font-weight:600;}
   .st-sub-score .bar{flex:1;height:6px;background:#d8d0bf;border-radius:3px;overflow:hidden;}
   .st-sub-score .fill{height:100%;border-radius:3px;}
-  .st-sub-score .num{flex:0 0 36px;text-align:right;font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:11.5px;}
+  .st-sub-score .num{flex:0 0 36px;text-align:right;font-family:var(--st-font-mono);font-weight:600;font-size:11.5px;}
 
   /* NEW: garment picker */
   .st-garment-picker{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 4px;}
-  .st-garment-btn{padding:8px 12px;border:1.5px solid var(--line);background:#fff;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;color:#5b6478;font-family:'Inter',sans-serif;transition:.15s;}
+  .st-garment-btn{padding:8px 12px;border:1.5px solid var(--line);background:#fff;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;color:#5b6478;font-family:var(--st-font-sans);transition:.15s;}
   .st-garment-btn.active{border-color:var(--ink);background:var(--ink);color:#fff;}
 
   /* NEW: history */
   .st-history{margin-top:14px;border:1px solid var(--line);border-radius:10px;background:#fff;overflow:hidden;}
   .st-history summary{padding:11px 14px;color:#5b6478;font-size:12px;font-weight:600;cursor:pointer;list-style:none;}
   .st-history summary::-webkit-details-marker{display:none;}
-  .st-history summary:after{content:"+";float:right;font-family:'IBM Plex Mono',monospace;}
+  .st-history summary:after{content:"+";float:right;font-family:var(--st-font-mono);}
   .st-history[open] summary:after{content:"−";}
-  .st-history .item{display:flex;justify-content:space-between;align-items:center;padding:8px 14px;font-size:12px;border-top:1px solid var(--line);font-family:'IBM Plex Mono',monospace;}
+  .st-history .item{display:flex;justify-content:space-between;align-items:center;padding:8px 14px;font-size:12px;border-top:1px solid var(--line);font-family:var(--st-font-mono);}
 
   @media(max-width:680px){
-    body{padding-bottom:32px;}
+    .st-root{padding-bottom:32px;}
     .st-wrap{padding:16px 12px 0;}
     .st-header{padding:26px 20px;border-radius:16px;}
     .st-h1{font-size:36px;}
@@ -287,11 +281,52 @@ interface HistoryEntry {
 }
 
 const HISTORY_KEY = "stc:history:v2";
+const EMPTY_BRAND_MAP: BrandMap = {};
+const STYLE_SELECTOR = "style[data-size-tape-calculator-styles]";
+
+/**
+ * A page may render more than one calculator. Keep one scoped style element
+ * while at least one instance is mounted, rather than injecting duplicates.
+ */
+function retainComponentStyles(): () => void {
+  let style = document.querySelector<HTMLStyleElement>(STYLE_SELECTOR);
+  if (!style) {
+    style = document.createElement("style");
+    style.dataset.sizeTapeCalculatorStyles = "true";
+    style.textContent = GLOBAL_CSS;
+    document.head.appendChild(style);
+  }
+  const nextMounts = Number(style.dataset.sizeTapeCalculatorMounts ?? "0") + 1;
+  style.dataset.sizeTapeCalculatorMounts = String(nextMounts);
+
+  return () => {
+    const mounts = Number(style?.dataset.sizeTapeCalculatorMounts ?? "1") - 1;
+    if (mounts <= 0) {
+      style?.remove();
+    } else if (style) {
+      style.dataset.sizeTapeCalculatorMounts = String(mounts);
+    }
+  };
+}
 
 /* ─────────────────────────────────────────────
    Component
 ───────────────────────────────────────────── */
-export default function SizeTapeCalculator() {
+export default function SizeTapeCalculator({
+  className,
+  style,
+  brandCharts,
+  initialBrand = "",
+  initialFit = "regular",
+  initialRegion = "US",
+  initialGarment = "bottom",
+  initialPoseModel = "movenet-thunder",
+  enableSegmentation = true,
+  assetUrls,
+  onResult,
+  onError,
+}: SizeTapeCalculatorProps = {}): ReactElement {
+  const rootClassName = ["st-root", className].filter(Boolean).join(" ");
   /* ── Step 1 state ── */
   const [gender, setGender] = useState<Gender | null>(null);
   const [heightVal, setHeightVal] = useState("");
@@ -303,19 +338,19 @@ export default function SizeTapeCalculator() {
   const [calibrationMethod, setCalibrationMethod] = useState<CalibrationMethod>("height");
 
   /* ── Fit, region, brand (NEW) ── */
-  const [fit, setFit] = useState<Fit>("regular");
-  const [region, setRegion] = useState<Region>("US");
-  const [brand, setBrand] = useState<string>("");
-  const [brandMap] = useState<BrandMap>({}); // consumer can extend at runtime
+  const [fit, setFit] = useState<Fit>(initialFit);
+  const [region, setRegion] = useState<Region>(initialRegion);
+  const [brand, setBrand] = useState<string>(initialBrand);
+  const brandMap = brandCharts ?? EMPTY_BRAND_MAP;
 
   /* ── Manual override (NEW §7.1) ── */
   const [manualWaistCm, setManualWaistCm] = useState<string>("");
 
   /* ── Garment class (NEW §4.3) ── */
-  const [garment, setGarment] = useState<GarmentClass>("bottom");
+  const [garment, setGarment] = useState<GarmentClass>(initialGarment);
 
-  /* ── Pose model picker (NEW §1.1) ── */
-  const [poseModel, setPoseModel] = useState<PoseModelKind>("movenet-thunder");
+  /* ── Pose model picker ── */
+  const [poseModel, setPoseModel] = useState<WorkerPoseModel>(initialPoseModel);
 
   /* ── Step 2 state ── */
   const [step2Locked, setStep2Locked] = useState(true);
@@ -361,8 +396,14 @@ export default function SizeTapeCalculator() {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
 
   /* ── Model ── */
-  const poseWorker = useWorkerDetector(poseModel);
-  const seg = useSegmenter();
+  const poseWorker = useWorkerDetector(poseModel, assetUrls?.moveNetModelUrl);
+  const seg = useSegmenter(
+    {
+      scriptUrl: assetUrls?.segmentationScriptUrl,
+      baseUrl: assetUrls?.segmentationBaseUrl,
+    },
+    enableSegmentation
+  );
 
   /* ── DOM refs ── */
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -370,14 +411,24 @@ export default function SizeTapeCalculator() {
   const camStreamRef = useRef<MediaStream | null>(null);
   const cameraRequestRef = useRef(0);
   const imgRef = useRef<HTMLImageElement>(null);
+  const onResultRef = useRef(onResult);
+  const onErrorRef = useRef(onError);
 
-  /* ── Inject global styles ── */
+  useEffect(() => { onResultRef.current = onResult; }, [onResult]);
+  useEffect(() => { onErrorRef.current = onError; }, [onError]);
   useEffect(() => {
-    const style = document.createElement("style");
-    style.textContent = GLOBAL_CSS;
-    document.head.appendChild(style);
-    return () => { document.head.removeChild(style); };
-  }, []);
+    if (poseWorker.error) {
+      onErrorRef.current?.({ source: "pose-detector", message: poseWorker.error });
+    }
+  }, [poseWorker.error]);
+  useEffect(() => {
+    if (seg.error) {
+      onErrorRef.current?.({ source: "segmentation", message: seg.error });
+    }
+  }, [seg.error]);
+
+  /* ── Inject isolated component styles once per page ── */
+  useEffect(() => retainComponentStyles(), []);
 
   /* ── Load history ── */
   useEffect(() => {
@@ -976,8 +1027,21 @@ export default function SizeTapeCalculator() {
         });
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [measurements, gender, heightVal, fit, region, brand, garment]);
+  }, [measurements, gender, heightVal, fit, region, brand, garment, brandMap, baselineSize]);
+
+  /* Emit an integration-friendly result after the recommendation state settles. */
+  useEffect(() => {
+    if (!measurements || !recommendations) return;
+    onResultRef.current?.({
+      measurements,
+      recommendations,
+      selectedGarment: garment,
+      selectedSize: recommendations[garment],
+      fit,
+      region,
+      brand: brand || null,
+    });
+  }, [measurements, recommendations, garment]);
 
   /* ─── Retake ─── */
   function retake(type: PhotoType) {
@@ -1068,7 +1132,7 @@ export default function SizeTapeCalculator() {
      Render
   ───────────────────────────────────────────── */
   return (
-    <>
+    <div className={rootClassName} style={style}>
       <div className="st-tape" />
       <div className="st-wrap">
 
@@ -1200,7 +1264,7 @@ export default function SizeTapeCalculator() {
             </div>
           </div>
           <p style={{ fontSize: 12, color: "#8a8f9c", margin: "0 0 8px", lineHeight: 1.5 }}>
-            Region and fit refine the recommended size. Brand is only used if a matching size chart is bundled.
+            Region and fit refine the recommended size. Brand is used when your app provides a matching brand chart.
           </p>
 
           {/* NEW: manual waist override */}
@@ -1849,7 +1913,7 @@ export default function SizeTapeCalculator() {
         </footer>
 
       </div>
-    </>
+    </div>
   );
 }
 

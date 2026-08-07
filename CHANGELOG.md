@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.1.0 — library integration and publish hardening
+
+- Added a documented public component API: `className`, `style`, editable initial selection values, `brandCharts`, `onResult`, and non-fatal `onError` callbacks.
+- Added `assetUrls` for self-hosted MoveNet and MediaPipe assets, plus `enableSegmentation` for strict/offline deployments that must not load MediaPipe.
+- Version-pinned the default MediaPipe Selfie Segmentation CDN URL rather than resolving a floating latest version.
+- Scoped the injected component stylesheet to `.st-root`, removed host-page `body`, `:root`, and universal-selector changes, and replaced the external Google Fonts import with system-font stacks.
+- Reused one stylesheet for multiple mounted calculators and removed it after the final component unmounts.
+- Hardened worker error, timeout, cleanup, and in-flight detection handling; a detector failure now rejects cleanly into the existing manual-guide fallback.
+- Added a self-hosted MoveNet model URL option to the worker.
+- Added regression tests for measurement math, calibration, and size-table/brand override logic. GitHub Actions now runs the test suite before publish and demo builds.
+- Added `prepack`, so a direct `npm pack` creates a complete distributable from a clean checkout; updated `pack:check` to include tests.
+- Added Apache 2.0 third-party notices for bundled TensorFlow.js and MediaPipe worker code.
+- Clarified runtime asset requests, CSP considerations, and the distinction between local photo processing and model/CDN network requests in the README.
+
 ## 1.0.0 — npm publishing readiness
 
 - Reworked package metadata for npm with an English description, richer keywords, `publishConfig.access`, package manager metadata, and a `pack:check` script.
