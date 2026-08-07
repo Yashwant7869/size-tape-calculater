@@ -1,13 +1,9 @@
 /* ─────────────────────────────────────────────
-   §3.2 — Silhouette-based body width measurement.
-   Uses MediaPipe Selfie Segmentation (loaded as a script
-   tag) to produce a binary body mask, then measures the
-   actual horizontal width at a given Y.
+   Silhouette-based body-width measurement.
 
-   Why MediaPipe Selfie Segmentation (not BodyPix):
-   - 250 KB vs 3 MB
-   - 5–10× faster on mid-range phones
-   - More accurate silhouette edges for single-person shots
+   MediaPipe is loaded only in the browser and can be disabled or self-hosted
+   through `SegmentationAssets`. The default URL is version-pinned so a future
+   CDN release cannot silently change a published calculator's behaviour.
 ───────────────────────────────────────────── */
 
 export interface SilhouetteWidth {
@@ -27,122 +23,167 @@ export interface Segmenter {
   ready: boolean;
 }
 
-/* ─────────────────────────────────────────────
-   Loader
-   MediaPipe's `@mediapipe/selfie_segmentation` package
-   attaches a global `window.SelfieSegmentation`. We
-   dynamically inject the script + wasm + model loader.
-───────────────────────────────────────────── */
-const MEDIAPIPE_SCRIPT =
-  "https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.js";
-const MEDIAPIPE_BASE =
-  "https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation";
+/** URLs used to load MediaPipe's segmentation runtime and its model assets. */
+export interface SegmentationAssets {
+  scriptUrl?: string;
+  baseUrl?: string;
+}
+
+const MEDIAPIPE_VERSION = "0.1.1675465747";
+export const DEFAULT_SEGMENTATION_SCRIPT_URL =
+  `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@${MEDIAPIPE_VERSION}/selfie_segmentation.js`;
+export const DEFAULT_SEGMENTATION_BASE_URL =
+  `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation@${MEDIAPIPE_VERSION}`;
 
 let segmenterPromise: Promise<Segmenter> | null = null;
+let segmenterCacheKey: string | null = null;
 
-export function loadSegmenter(): Promise<Segmenter> {
-  if (segmenterPromise) return segmenterPromise;
-  segmenterPromise = (async () => {
-    await injectScript(MEDIAPIPE_SCRIPT);
-    const SelfieSegmentation =
-      (window as unknown as { SelfieSegmentation: new (cfg: { locateFile: (f: string) => string }) => {
-        setOptions(opts: { modelSelection: 0 | 1; selfieMode: boolean }): void;
-        onResults(cb: (res: { segmentationMask: HTMLCanvasElement }) => void): void;
-        send(inputs: { image: HTMLCanvasElement | HTMLImageElement | HTMLVideoElement }): Promise<void>;
-        close(): Promise<void>;
-        reset(): void;
-      } }).SelfieSegmentation;
+/**
+ * Create the lazily-loaded MediaPipe segmenter. Consumers can supply local or
+ * approved CDN URLs for strict CSP and offline-capable deployments.
+ */
+export function loadSegmenter(assets: SegmentationAssets = {}): Promise<Segmenter> {
+  const scriptUrl = assets.scriptUrl ?? DEFAULT_SEGMENTATION_SCRIPT_URL;
+  const baseUrl = assets.baseUrl ?? DEFAULT_SEGMENTATION_BASE_URL;
+  const cacheKey = `${scriptUrl}\n${baseUrl}`;
 
-    const seg = new SelfieSegmentation({
-      locateFile: (file: string) => `${MEDIAPIPE_BASE}/${file}`,
-    });
-    seg.setOptions({ modelSelection: 1, selfieMode: false });
-    return new Promise<Segmenter>((resolve) => {
-      const ready: Segmenter = {
-        ready: false,
-        segment: async (image) => {
-          const result = await new Promise<{ segmentationMask: HTMLCanvasElement } | null>((res) => {
-            let done = false;
-            seg.onResults((r) => {
-              if (done) return;
-              done = true;
-              res(r);
-            });
-            seg.send({ image }).then(() => {
-              if (!done) { done = true; res(null); }
-            });
+  if (segmenterPromise && segmenterCacheKey === cacheKey) return segmenterPromise;
+
+  const promise = createSegmenter(scriptUrl, baseUrl);
+  segmenterPromise = promise;
+  segmenterCacheKey = cacheKey;
+  void promise.catch(() => {
+    if (segmenterPromise === promise) {
+      segmenterPromise = null;
+      segmenterCacheKey = null;
+    }
+  });
+  return promise;
+}
+
+async function createSegmenter(scriptUrl: string, baseUrl: string): Promise<Segmenter> {
+  await injectScript(scriptUrl);
+  const SelfieSegmentation =
+    (window as unknown as { SelfieSegmentation?: new (cfg: { locateFile: (f: string) => string }) => {
+      setOptions(opts: { modelSelection: 0 | 1; selfieMode: boolean }): void;
+      onResults(cb: (res: { segmentationMask: HTMLCanvasElement }) => void): void;
+      send(inputs: { image: HTMLCanvasElement | HTMLImageElement | HTMLVideoElement }): Promise<void>;
+      close(): Promise<void>;
+      reset(): void;
+    } }).SelfieSegmentation;
+
+  if (!SelfieSegmentation) {
+    throw new Error("MediaPipe SelfieSegmentation was not available after the script loaded");
+  }
+
+  const seg = new SelfieSegmentation({
+    locateFile: (file: string) => `${baseUrl.replace(/\/$/, "")}/${file}`,
+  });
+  seg.setOptions({ modelSelection: 1, selfieMode: false });
+
+  return new Promise<Segmenter>((resolve) => {
+    const ready: Segmenter = {
+      ready: false,
+      segment: async (image) => {
+        const result = await new Promise<{ segmentationMask: HTMLCanvasElement } | null>((res) => {
+          let done = false;
+          seg.onResults((r) => {
+            if (done) return;
+            done = true;
+            res(r);
           });
-          if (!result) return null;
-          return maskToImageData(result.segmentationMask);
-        },
-      };
-      // Initialise by sending a 2×2 blank image to trigger model load.
-      // If the model/wasm can't be fetched (offline, blocked CDN), the
-      // probe never produces a result — resolve after a timeout anyway so
-      // callers aren't stuck on "Preparing…" forever (ready stays false).
-      const probe = document.createElement("canvas");
-      probe.width = 2; probe.height = 2;
-      let settled = false;
-      seg.onResults(() => {
-        if (settled) return;
-        settled = true;
-        ready.ready = true;
-        resolve(ready);
-      });
-      seg.send({ image: probe }).catch(() => {/* handled by timeout */});
-      setTimeout(() => {
-        if (settled) return;
-        settled = true;
-        resolve(ready); // ready.ready === false → degraded mode
-      }, 20000);
+          seg.send({ image }).then(() => {
+            if (!done) {
+              done = true;
+              res(null);
+            }
+          }).catch(() => {
+            if (!done) {
+              done = true;
+              res(null);
+            }
+          });
+        });
+        return result ? maskToImageData(result.segmentationMask) : null;
+      },
+    };
+
+    // Initialise with a tiny blank image. A timeout lets the UI fall back to
+    // keypoint/manual guides if a CDN is unavailable rather than waiting forever.
+    const probe = document.createElement("canvas");
+    probe.width = 2;
+    probe.height = 2;
+    let settled = false;
+    seg.onResults(() => {
+      if (settled) return;
+      settled = true;
+      ready.ready = true;
+      resolve(ready);
     });
-  })();
-  return segmenterPromise;
+    seg.send({ image: probe }).catch(() => {
+      // The timeout below resolves a not-ready segmenter for graceful fallback.
+    });
+    window.setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      resolve(ready);
+    }, 20000);
+  });
 }
 
 function injectScript(src: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    if (document.querySelector(`script[data-src="${src}"]`)) {
-      // Already injected — wait for it to be defined if needed.
-      const w = src.split("/").pop()!;
-      if ((window as unknown as Record<string, unknown>)[w] !== undefined) {
+    const existing = Array.from(document.scripts).find(
+      (script) => script.dataset.sizeTapeSegmentationSrc === src
+    );
+    if (existing) {
+      if ((window as unknown as { SelfieSegmentation?: unknown }).SelfieSegmentation) {
         resolve();
         return;
       }
-      // Otherwise: poll briefly.
-      let tries = 0;
-      const id = setInterval(() => {
-        tries++;
-        if ((window as unknown as Record<string, unknown>)[w] !== undefined) {
-          clearInterval(id);
-          resolve();
-        } else if (tries > 200) {
-          clearInterval(id);
-          reject(new Error("mediapipe script load timeout"));
-        }
-      }, 50);
+      waitForScript(existing, resolve, reject);
       return;
     }
-    const s = document.createElement("script");
-    s.src = src;
-    s.async = true;
-    s.dataset.src = src;
-    s.onload = () => resolve();
-    s.onerror = () => reject(new Error("failed to load " + src));
-    document.head.appendChild(s);
+
+    const script = document.createElement("script");
+    script.src = src;
+    script.async = true;
+    script.dataset.sizeTapeSegmentationSrc = src;
+    waitForScript(script, resolve, reject);
+    document.head.appendChild(script);
   });
+}
+
+function waitForScript(
+  script: HTMLScriptElement,
+  resolve: () => void,
+  reject: (reason: Error) => void
+) {
+  let settled = false;
+  const finish = (callback: () => void) => {
+    if (settled) return;
+    settled = true;
+    window.clearTimeout(timeout);
+    callback();
+  };
+  const timeout = window.setTimeout(() => {
+    finish(() => reject(new Error("MediaPipe script load timeout")));
+  }, 15000);
+  script.addEventListener("load", () => finish(resolve), { once: true });
+  script.addEventListener("error", () => finish(() => reject(new Error(`Failed to load ${script.src}`))), { once: true });
 }
 
 function maskToImageData(canvas: HTMLCanvasElement): ImageData {
   // The mask is a 1-channel alpha-blended image. Threshold at 128.
-  const w = canvas.width, h = canvas.height;
+  const w = canvas.width;
+  const h = canvas.height;
   const ctx = canvas.getContext("2d", { willReadFrequently: true });
-  if (!ctx) throw new Error("no 2d context");
+  if (!ctx) throw new Error("No 2D context available for segmentation mask");
   const src = ctx.getImageData(0, 0, w, h);
   const out = new ImageData(w, h);
   for (let i = 0; i < src.data.length; i += 4) {
     const v = src.data[i + 3] > 128 ? 255 : 0;
-    out.data[i]     = v;
+    out.data[i] = v;
     out.data[i + 1] = v;
     out.data[i + 2] = v;
     out.data[i + 3] = 255;
@@ -151,18 +192,20 @@ function maskToImageData(canvas: HTMLCanvasElement): ImageData {
 }
 
 /* ─────────────────────────────────────────────
-   §3.2 — Measure the silhouette's horizontal extent
-   in a vertical band [y0, y1] of the mask.
+   Measure the silhouette's horizontal extent in a vertical band.
 ───────────────────────────────────────────── */
 export function silhouetteWidthInBand(
   mask: ImageData,
   y0Frac: number,
   y1Frac: number
 ): SilhouetteWidth | null {
-  const w = mask.width, h = mask.height;
+  const w = mask.width;
+  const h = mask.height;
   const y0 = Math.max(0, Math.floor(h * y0Frac));
   const y1 = Math.min(h, Math.ceil(h * y1Frac));
-  let left = -1, right = -1, pixels = 0;
+  let left = -1;
+  let right = -1;
+  let pixels = 0;
   for (let y = y0; y < y1; y++) {
     for (let x = 0; x < w; x++) {
       const i = (y * w + x) * 4;
@@ -183,28 +226,24 @@ export function silhouetteWidthInBand(
   };
 }
 
-/** Average the silhouette width over several rows (smoother). */
+/** Average the silhouette width over several rows for a smoother measurement. */
 export function silhouetteWidthAveraged(
   mask: ImageData,
   centerYFrac: number,
   halfBandFrac: number
 ): SilhouetteWidth | null {
-  // Sample 5 horizontal lines around centerY.
   const samples: SilhouetteWidth[] = [];
   const offsets = [-0.02, -0.01, 0, 0.01, 0.02];
-  for (const off of offsets) {
-    const yc = centerYFrac + off;
-    const s = silhouetteWidthInBand(mask, yc - halfBandFrac, yc + halfBandFrac);
-    if (s) samples.push(s);
+  for (const offset of offsets) {
+    const yc = centerYFrac + offset;
+    const sample = silhouetteWidthInBand(mask, yc - halfBandFrac, yc + halfBandFrac);
+    if (sample) samples.push(sample);
   }
   if (samples.length === 0) return null;
-  const left = samples.reduce((s, x) => s + x.leftFrac, 0) / samples.length;
-  const right = samples.reduce((s, x) => s + x.rightFrac, 0) / samples.length;
-  const pix = samples.reduce((s, x) => s + x.pixelsInBand, 0);
   return {
-    leftFrac: left,
-    rightFrac: right,
-    pixelsInBand: pix,
+    leftFrac: samples.reduce((sum, sample) => sum + sample.leftFrac, 0) / samples.length,
+    rightFrac: samples.reduce((sum, sample) => sum + sample.rightFrac, 0) / samples.length,
+    pixelsInBand: samples.reduce((sum, sample) => sum + sample.pixelsInBand, 0),
     imageW: mask.width,
     imageH: mask.height,
   };

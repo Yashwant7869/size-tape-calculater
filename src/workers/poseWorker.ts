@@ -1,7 +1,8 @@
 /* ─────────────────────────────────────────────
-   Pose detection worker (§6.4).
-   Bundled with local @tensorflow-models/pose-detection
-   so the scanner works without external CDN access.
+   Pose detection worker.
+
+   TensorFlow.js and MoveNet are bundled into this worker. The model weights are
+   loaded at runtime; callers may supply a self-hosted MoveNet `model.json` URL.
 ───────────────────────────────────────────── */
 
 /// <reference lib="webworker" />
@@ -11,6 +12,8 @@ import * as poseDetection from "@tensorflow-models/pose-detection";
 import * as tf from "@tensorflow/tfjs";
 
 declare const self: DedicatedWorkerGlobalScope;
+
+type WorkerPoseModel = "movenet-thunder" | "movenet-lightning";
 
 interface DetectRequest {
   type: "detect";
@@ -28,7 +31,8 @@ interface DetectResponse {
 
 interface InitRequest {
   type: "init";
-  model: "movenet-thunder" | "movenet-lightning" | "blazepose";
+  model: WorkerPoseModel;
+  modelUrl?: string;
 }
 
 interface InitResponse {
@@ -37,88 +41,94 @@ interface InitResponse {
   error?: string;
 }
 
-type Req = DetectRequest | InitRequest;
+type Request = DetectRequest | InitRequest;
 
-let detector: { estimatePoses(img: HTMLCanvasElement): Promise<{ keypoints: PoseKeypoint[] }[]> } | null = null;
-let modelKind: string = "";
+type Detector = {
+  estimatePoses(image: OffscreenCanvas): Promise<{ keypoints: PoseKeypoint[] }[]>;
+};
 
-self.addEventListener("message", async (e: MessageEvent<Req>) => {
-  if (e.data.type === "init") {
+let detector: Detector | null = null;
+
+self.addEventListener("message", async (event: MessageEvent<Request>) => {
+  if (event.data.type === "init") {
     try {
-      await loadModel(e.data.model);
-      modelKind = e.data.model;
-      const res: InitResponse = { type: "init", ok: true };
-      self.postMessage(res);
-    } catch (err) {
-      const res: InitResponse = { type: "init", ok: false, error: String(err) };
-      self.postMessage(res);
+      await loadModel(event.data.model, event.data.modelUrl);
+      const response: InitResponse = { type: "init", ok: true };
+      self.postMessage(response);
+    } catch (cause) {
+      const response: InitResponse = {
+        type: "init",
+        ok: false,
+        error: cause instanceof Error ? cause.message : String(cause),
+      };
+      self.postMessage(response);
     }
     return;
   }
-  if (e.data.type === "detect") {
-    const { id, bitmap } = e.data;
+
+  if (event.data.type === "detect") {
+    const { id, bitmap } = event.data;
     try {
-      if (!detector) {
-        await loadModel("movenet-thunder");
-      }
+      if (!detector) await loadModel("movenet-thunder");
+
       const maxSide = 640;
       const ratio = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
-      const cnv = new OffscreenCanvas(
-        Math.round(bitmap.width * ratio),
-        Math.round(bitmap.height * ratio)
+      const canvas = new OffscreenCanvas(
+        Math.max(1, Math.round(bitmap.width * ratio)),
+        Math.max(1, Math.round(bitmap.height * ratio))
       );
-      const ctx = cnv.getContext("2d")!;
-      ctx.drawImage(bitmap, 0, 0, cnv.width, cnv.height);
-      const det = detector!;
-      const poses = await det.estimatePoses(cnv as unknown as HTMLCanvasElement);
+      const context = canvas.getContext("2d");
+      if (!context) throw new Error("OffscreenCanvas 2D context is unavailable");
+      context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+
+      const poses = await detector!.estimatePoses(canvas);
       const rawKeypoints: PoseKeypoint[] = poses[0]?.keypoints ?? [];
-      const scaleBack = cnv.width > 0 ? bitmap.width / cnv.width : 1;
-      bitmap.close();
-      const keypoints: PoseKeypoint[] = scaleBack === 1
+      const scaleBack = canvas.width > 0 ? bitmap.width / canvas.width : 1;
+      const keypoints = scaleBack === 1
         ? rawKeypoints
-        : rawKeypoints.map(k => ({
-            ...k,
-            x: k.x * scaleBack,
-            y: k.y * scaleBack,
+        : rawKeypoints.map((keypoint) => ({
+            ...keypoint,
+            x: keypoint.x * scaleBack,
+            y: keypoint.y * scaleBack,
           }));
       const averageScore = keypoints.length === 0
         ? 0
-        : (keypoints.reduce((s, k) => s + (k.score ?? 0), 0) / keypoints.length) * 100;
-      const res: DetectResponse = { type: "detect", id, keypoints, averageScore };
-      self.postMessage(res);
-    } catch (err) {
-      bitmap.close();
-      const res: DetectResponse = {
-        type: "detect", id, keypoints: [], averageScore: 0,
-        error: String(err),
+        : (keypoints.reduce((sum, keypoint) => sum + (keypoint.score ?? 0), 0) / keypoints.length) * 100;
+      const response: DetectResponse = { type: "detect", id, keypoints, averageScore };
+      self.postMessage(response);
+    } catch (cause) {
+      const response: DetectResponse = {
+        type: "detect",
+        id,
+        keypoints: [],
+        averageScore: 0,
+        error: cause instanceof Error ? cause.message : String(cause),
       };
-      self.postMessage(res);
+      self.postMessage(response);
+    } finally {
+      bitmap.close();
     }
-    return;
   }
 });
 
-async function loadModel(model: string): Promise<void> {
-  // Ensure TF backend is ready (WebGL/WASM) before creating detector.
-  // Ensure TF backend is ready. Try webgl first, then wasm, then cpu.
+async function loadModel(model: WorkerPoseModel, modelUrl?: string): Promise<void> {
+  // WebGL is generally fastest. If it cannot be initialized in a worker, TFJS
+  // falls back to CPU rather than failing the calculator.
   try {
     await tf.setBackend("webgl");
   } catch {
-    try {
-      await tf.setBackend("wasm");
-    } catch {
-      await tf.setBackend("cpu");
-    }
+    await tf.setBackend("cpu");
   }
   await tf.ready();
 
-  const variant = model === "movenet-lightning"
+  const modelType = model === "movenet-lightning"
     ? poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING
     : poseDetection.movenet.modelType.SINGLEPOSE_THUNDER;
+  const config = modelUrl ? { modelType, modelUrl } : { modelType };
   detector = (await poseDetection.createDetector(
     poseDetection.SupportedModels.MoveNet,
-    { modelType: variant }
-  )) as unknown as { estimatePoses(img: HTMLCanvasElement): Promise<{ keypoints: PoseKeypoint[] }[]> };
+    config
+  )) as unknown as Detector;
 }
 
 export {};
