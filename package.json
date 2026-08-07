@@ -49,7 +49,7 @@
   "scripts": {
     "dev": "vite --host",
     "build": "node scripts/clean-dist.cjs && tsup && node scripts/fix-worker-url.cjs",
-    "build:demo": "vite build",
+    "build:demo": "npm test && vite build",
     "preview": "vite preview --host",
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test tests/*.test.ts",
