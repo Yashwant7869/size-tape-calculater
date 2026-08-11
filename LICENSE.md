@@ -1,14 +1,14 @@
 # PROPRIETARY SOFTWARE LICENSE
 
-**Copyright © 2026 Yashwant Singh Gour. All Rights Reserved.**
+**Copyright © 2026 yashwant7869. All Rights Reserved.**
 
-This software, including its source code, object code, documentation, designs, algorithms, interfaces, configuration files, and related materials (collectively, the **"Software"**), is the exclusive intellectual property of **Yashwant Singh Gour**.
+This software, including its source code, object code, documentation, designs, algorithms, interfaces, configuration files, and related materials (collectively, the **"Software"**), is the exclusive intellectual property of **yashwant7869**.
 
 ---
 
 ## 1. Ownership
 
-All rights, title, and interest in and to the Software remain exclusively with **Yashwant Singh Gour**.
+All rights, title, and interest in and to the Software remain exclusively with **yashwant7869**.
 
 No ownership, copyright, patent, trademark, trade secret, or other intellectual property rights are transferred to any person or entity by providing access to, downloading, viewing, or possessing the Software.
 
@@ -18,7 +18,7 @@ Access to the source code does not grant any right or license to use the Softwar
 
 ## 2. No Unauthorized Use
 
-The Software may not be used, copied, reproduced, modified, adapted, translated, published, distributed, sublicensed, sold, leased, rented, transferred, or commercially exploited without prior written permission from **Yashwant Singh Gour**.
+The Software may not be used, copied, reproduced, modified, adapted, translated, published, distributed, sublicensed, sold, leased, rented, transferred, or commercially exploited without prior written permission from **yashwant7869**.
 
 Any use of the Software beyond the rights expressly granted under a written license agreement is prohibited.
 
@@ -26,7 +26,7 @@ Any use of the Software beyond the rights expressly granted under a written lice
 
 ## 3. Commercial Use
 
-Any commercial use of the Software requires a separate written commercial license agreement with **Yashwant Singh Gour**.
+Any commercial use of the Software requires a separate written commercial license agreement with **yashwant7869**.
 
 Commercial use includes, but is not limited to:
 
@@ -45,7 +45,7 @@ No commercial use is permitted without prior written authorization.
 
 ## 4. License Fee and Royalty
 
-Commercial use of the Software may require payment of a license fee, royalty, revenue share, subscription fee, usage-based fee, or other commercial consideration as determined by **Yashwant Singh Gour**.
+Commercial use of the Software may require payment of a license fee, royalty, revenue share, subscription fee, usage-based fee, or other commercial consideration as determined by **yashwant7869**.
 
 The applicable commercial terms shall be agreed upon in a separate written agreement.
 
@@ -71,17 +71,17 @@ No commercial rights are granted until the applicable written agreement has been
 
 ## 5. Modification
 
-No person or entity may modify, adapt, translate, transform, or create derivative works based on the Software without prior written permission from **Yashwant Singh Gour**.
+No person or entity may modify, adapt, translate, transform, or create derivative works based on the Software without prior written permission from **yashwant7869**.
 
 Any modification authorized in writing does not transfer ownership of the original Software or its intellectual property rights.
 
-All intellectual property rights in the original Software remain with **Yashwant Singh Gour**.
+All intellectual property rights in the original Software remain with **yashwant7869**.
 
 ---
 
 ## 6. Distribution
 
-Redistribution, publication, resale, sublicensing, sharing, uploading, mirroring, or otherwise making the Software available to any third party is prohibited without prior written authorization from **Yashwant Singh Gour**.
+Redistribution, publication, resale, sublicensing, sharing, uploading, mirroring, or otherwise making the Software available to any third party is prohibited without prior written authorization from **yashwant7869**.
 
 This restriction includes, but is not limited to:
 
@@ -102,7 +102,7 @@ This restriction includes, but is not limited to:
 
 ## 7. Private and Internal Use
 
-Private evaluation, testing, research, or internal use of the Software is permitted only when expressly authorized by **Yashwant Singh Gour**.
+Private evaluation, testing, research, or internal use of the Software is permitted only when expressly authorized by **yashwant7869**.
 
 Such permission does not grant the right to:
 
@@ -118,7 +118,7 @@ Such permission does not grant the right to:
 
 ## 8. Reverse Engineering
 
-To the maximum extent permitted by applicable law, reverse engineering, decompiling, disassembling, decoding, or attempting to discover the source code, algorithms, architecture, or underlying technology of the Software is prohibited without prior written authorization from **Yashwant Singh Gour**.
+To the maximum extent permitted by applicable law, reverse engineering, decompiling, disassembling, decoding, or attempting to discover the source code, algorithms, architecture, or underlying technology of the Software is prohibited without prior written authorization from **yashwant7869**.
 
 ---
 
@@ -130,13 +130,13 @@ No person or entity may remove, alter, conceal, or replace copyright or ownershi
 
 The following copyright notice must be retained where applicable:
 
-**Copyright © 2026 Yashwant Singh Gour. All Rights Reserved.**
+**Copyright © 2026 yashwant7869. All Rights Reserved.**
 
 ---
 
 ## 10. No Grant of Rights
 
-Except for rights expressly granted through a separate written agreement signed by **Yashwant Singh Gour**, no license or other rights are granted under any:
+Except for rights expressly granted through a separate written agreement signed by **yashwant7869**, no license or other rights are granted under any:
 
 * Copyright
 * Patent
@@ -157,7 +157,7 @@ The Software may contain or depend upon third-party libraries, frameworks, packa
 
 Those third-party components remain subject to their respective licenses.
 
-This License applies only to the Software and components owned or controlled by **Yashwant Singh Gour**.
+This License applies only to the Software and components owned or controlled by **yashwant7869**.
 
 Nothing in this License is intended to restrict rights that users independently receive under applicable third-party licenses.
 
@@ -177,13 +177,13 @@ Upon termination or expiration of an applicable license, the licensee must immed
 
 THE SOFTWARE IS PROVIDED **"AS IS"**, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, WHETHER EXPRESS, IMPLIED, STATUTORY, OR OTHERWISE, TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW.
 
-Yashwant Singh Gour makes no warranties regarding the accuracy, reliability, availability, security, performance, merchantability, fitness for a particular purpose, or non-infringement of the Software.
+yashwant7869 makes no warranties regarding the accuracy, reliability, availability, security, performance, merchantability, fitness for a particular purpose, or non-infringement of the Software.
 
 ---
 
 ## 14. Limitation of Liability
 
-TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, YASHWANT SINGH GOUR SHALL NOT BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, EXEMPLARY, OR OTHER DAMAGES ARISING OUT OF OR RELATING TO THE USE OR INABILITY TO USE THE SOFTWARE.
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, yashwant7869 SHALL NOT BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, EXEMPLARY, OR OTHER DAMAGES ARISING OUT OF OR RELATING TO THE USE OR INABILITY TO USE THE SOFTWARE.
 
 This limitation applies regardless of the legal theory under which such liability is claimed, except to the extent liability cannot lawfully be excluded or limited.
 
@@ -191,7 +191,7 @@ This limitation applies regardless of the legal theory under which such liabilit
 
 ## 15. Permission Requests
 
-Any person or organization wishing to use, modify, distribute, integrate, publish, or commercially exploit the Software must obtain prior written permission from **Yashwant Singh Gour**.
+Any person or organization wishing to use, modify, distribute, integrate, publish, or commercially exploit the Software must obtain prior written permission from **yashwant7869**.
 
 Permission requests should include:
 
@@ -204,7 +204,7 @@ Permission requests should include:
 * Duration of intended use.
 * Any modifications or integrations planned.
 
-Permission may be granted or denied at the sole discretion of **Yashwant Singh Gour**, subject to applicable law and any separate written agreement.
+Permission may be granted or denied at the sole discretion of **yashwant7869**, subject to applicable law and any separate written agreement.
 
 ---
 
@@ -212,7 +212,7 @@ Permission may be granted or denied at the sole discretion of **Yashwant Singh G
 
 For commercial licensing, partnership, integration, distribution rights, or other authorized use, contact:
 
-**Name:** Yashwant Singh Gour
+**Name:** yashwant7869
 **Email:** [singhyashvant35@gmail.com](mailto:singhyashvant35@gmail.com)
 
 Commercial license terms, including applicable royalty rates, license fees, usage restrictions, duration, and other conditions, will be specified in a separate written agreement.
@@ -229,7 +229,7 @@ Any dispute arising out of or relating to this License shall be subject to the j
 
 ## 18. Entire Agreement
 
-This License constitutes the terms governing the use of the Software unless a separate written license agreement has been executed between **Yashwant Singh Gour** and the authorized user or organization.
+This License constitutes the terms governing the use of the Software unless a separate written license agreement has been executed between **yashwant7869** and the authorized user or organization.
 
 In the event of a conflict between this License and a separately executed written commercial license agreement, the terms of the signed commercial license agreement shall prevail to the extent of the conflict.
 
@@ -237,7 +237,7 @@ In the event of a conflict between this License and a separately executed writte
 
 ## 19. Reservation of Rights
 
-All rights not expressly granted under this License are reserved by **Yashwant Singh Gour**.
+All rights not expressly granted under this License are reserved by **yashwant7869**.
 
 No implied license or permission shall be deemed to have been granted.
 
@@ -245,13 +245,13 @@ No implied license or permission shall be deemed to have been granted.
 
 # COPYRIGHT NOTICE
 
-**Copyright © 2026 Yashwant Singh Gour. All Rights Reserved.**
+**Copyright © 2026 yashwant7869. All Rights Reserved.**
 
 **Unauthorized copying, modification, distribution, publication, sublicensing, or commercial use of this Software is strictly prohibited without prior written permission.**
 
 For licensing inquiries:
 
-**Yashwant Singh Gour**
+**yashwant7869**
 **[singhyashvant35@gmail.com](mailto:singhyashvant35@gmail.com)**
 
 ---
