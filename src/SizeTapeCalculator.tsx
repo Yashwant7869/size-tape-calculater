@@ -54,11 +54,36 @@ const GLOBAL_CSS = `
     margin:0;background:var(--paper);color:var(--ink);font-family:var(--st-font-sans);padding:0 0 60px;
   }
   .st-root,.st-root *,.st-root *:before,.st-root *:after{box-sizing:border-box;}
+  .st-modal-overlay{min-height:100vh;padding:24px;display:flex;align-items:center;justify-content:center;background:rgba(27,42,74,.34);backdrop-filter:blur(6px);}
+  .st-modal{width:min(680px,100%);max-height:calc(100vh - 48px);overflow:auto;background:#fff;border:1px solid var(--line);border-radius:18px;box-shadow:0 24px 80px rgba(27,42,74,.22);}
+  .st-modal-top{padding:18px 22px 14px;border-bottom:1px solid var(--line);background:linear-gradient(145deg,#fff 0%,#f8f3e9 100%);}
+  .st-modal-title-row{display:flex;align-items:center;justify-content:space-between;gap:12px;}
+  .st-modal-eyebrow{font-family:var(--st-font-mono);font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--brass);margin:0 0 3px;}
+  .st-modal-title{font-family:var(--st-font-serif);font-size:23px;font-weight:600;line-height:1.1;margin:0;}
+  .st-modal-close{width:34px;height:34px;border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--ink);font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+  .st-progress{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:16px;}
+  .st-progress-step{display:flex;align-items:center;gap:7px;min-width:0;color:#9097a4;font-size:11px;font-weight:700;}
+  .st-progress-dot{width:24px;height:24px;border-radius:50%;border:1.5px solid var(--line);background:#fff;display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-family:var(--st-font-mono);font-size:10px;}
+  .st-progress-step.active{color:var(--ink);}
+  .st-progress-step.active .st-progress-dot{border-color:var(--ink);background:var(--ink);color:#fff;}
+  .st-progress-step.done{color:var(--sage);}
+  .st-progress-step.done .st-progress-dot{border-color:var(--sage);background:#eef3ea;color:var(--sage);}
+  .st-modal-body{padding:22px;}
+  .st-step{margin:0;background:#fff;border:0;border-radius:0;padding:0;position:relative;transition:opacity .2s;}
+  .st-step-head{display:flex;align-items:center;gap:10px;margin-bottom:20px;flex-wrap:wrap;}
+  .st-step-head .st-num{display:none;}
+  .st-hint{font-size:11.5px;color:#8a8f9c;margin-left:auto;}
+  .st-step h2{font-family:var(--st-font-serif);font-size:22px;font-weight:600;margin:0;}
+  .st-step-actions{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:22px;padding-top:16px;border-top:1px solid #eee9df;}
+  .st-back-btn{border:0;background:transparent;color:#6f7787;font-size:12.5px;font-weight:700;cursor:pointer;padding:9px 4px;}
+  .st-back-btn:hover{color:var(--ink);}
+  .st-modal-footer{padding:12px 22px;border-top:1px solid var(--line);background:#faf8f3;color:#7b8493;font-size:10.5px;text-align:center;}
+
   .st-root button,.st-root input,.st-root select{font:inherit;}
   .st-root button:focus-visible,.st-root input:focus-visible,.st-root select:focus-visible,.st-root summary:focus-visible{outline:3px solid rgba(59,130,246,.28);outline-offset:3px;}
-  .st-wrap{max-width:860px;margin:0 auto;padding:28px 20px 0;}
-  .st-tape{height:8px;background:linear-gradient(90deg,var(--ink),var(--brass),var(--stitch));}
-  .st-header{position:relative;overflow:hidden;padding:38px;border:1px solid var(--line);border-radius:20px;background:linear-gradient(145deg,#fff 0%,#f8f3e9 100%);box-shadow:0 18px 50px rgba(27,42,74,.08);}
+  .st-wrap{width:100%;margin:0;padding:0;}
+  .st-tape{display:none;}
+  .st-header{display:none;}
   .st-header:after{content:"";position:absolute;width:240px;height:240px;border:46px solid rgba(176,141,87,.08);border-radius:50%;right:-105px;top:-130px;pointer-events:none;z-index:0;}
   .st-header > *{position:relative;z-index:1;}
   .st-eyebrow{font-family:var(--st-font-mono);font-size:11.5px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--brass);margin:0 0 9px;}
@@ -75,14 +100,14 @@ const GLOBAL_CSS = `
   .st-dot{width:7px;height:7px;border-radius:50%;background:#c9c2ac;flex-shrink:0;}
   .st-dot.ready{background:var(--sage);}
   .st-dot.busy{background:var(--brass);animation:st-pulse 1s infinite;}
-  .st-quick-flow{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;margin-top:24px;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--line);position:relative;z-index:1;}
+  .st-quick-flow{display:none;}
   .st-flow-item{display:flex;align-items:center;gap:10px;padding:12px 14px;background:rgba(255,255,255,.82);}
   .st-flow-num{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex:0 0 auto;background:var(--chalk);color:var(--ink);font-family:var(--st-font-mono);font-size:11px;font-weight:700;}
   .st-flow-item strong{display:block;font-size:12.5px;line-height:1.25;}
   .st-flow-item small{display:block;margin-top:2px;color:#858c99;font-size:10.5px;}
   @keyframes st-pulse{0%,100%{opacity:1}50%{opacity:.3}}
   .st-step{margin-top:28px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:24px;position:relative;transition:opacity .2s;}
-  .st-step.locked{opacity:.45;pointer-events:none;}
+  .st-step.locked{opacity:1;pointer-events:auto;}
   .st-step-head{display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap;}
   .st-num{font-family:var(--st-font-mono);font-weight:600;font-size:13px;width:28px;height:28px;border-radius:50%;border:1.5px solid var(--ink);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
   .st-hint{font-size:12.5px;color:#8a8f9c;margin-left:auto;}
@@ -328,6 +353,7 @@ export default function SizeTapeCalculator({
 }: SizeTapeCalculatorProps = {}): ReactElement {
   const rootClassName = ["st-root", className].filter(Boolean).join(" ");
   /* ── Step 1 state ── */
+  const [name, setName] = useState("");
   const [gender, setGender] = useState<Gender | null>(null);
   const [heightVal, setHeightVal] = useState("");
   const [weightVal, setWeightVal] = useState("");
@@ -362,6 +388,8 @@ export default function SizeTapeCalculator({
   const [cameraFacing, setCameraFacing] = useState<CameraFacing>("environment");
   const [cameraStreamVersion, setCameraStreamVersion] = useState(0);
   const [activePhotoType, setActivePhotoType] = useState<PhotoType>("front");
+
+  const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
 
   // Front photo state
   const [front, setFront] = useState<PhotoState>(initialPhotoState());
@@ -435,13 +463,13 @@ export default function SizeTapeCalculator({
     try {
       const raw = localStorage.getItem(HISTORY_KEY);
       if (raw) setHistory(JSON.parse(raw) as HistoryEntry[]);
-    } catch {/* ignore */}
+    } catch {/* ignore */ }
   }, []);
 
   function saveHistory(entry: HistoryEntry) {
     setHistory((prev) => {
       const next = [entry, ...prev].slice(0, 10);
-      try { localStorage.setItem(HISTORY_KEY, JSON.stringify(next)); } catch {/* ignore */}
+      try { localStorage.setItem(HISTORY_KEY, JSON.stringify(next)); } catch {/* ignore */ }
       return next;
     });
   }
@@ -460,8 +488,12 @@ export default function SizeTapeCalculator({
     else if (b < t[2]) sz = "M";
     else if (b < t[3]) sz = "L";
     else sz = "XL";
-    setBmi(b); setBaselineSize(sz);
-    setStep2Locked(false); setStep3Locked(true); setMeasurements(null);
+    setBmi(b);
+    setBaselineSize(sz);
+    setStep2Locked(false);
+    setStep3Locked(true);
+    setMeasurements(null);
+    setCurrentStep(2);
   }
 
   /* ─── Step 2: zoom / pan ─── */
@@ -565,13 +597,12 @@ export default function SizeTapeCalculator({
       const orient = validateOrientation(rawKps, type);
       if (!orient.matches) {
         setDetectBanner({
-          text: `This doesn't look like a ${type} photo. ${
-            orient.expected === "front"
-              ? "Please face the camera and re-shoot."
-              : orient.expected === "side"
-                ? "Please turn 90° and re-shoot."
-                : "Please re-shoot with the full body in view."
-          }`,
+          text: `This doesn't look like a ${type} photo. ${orient.expected === "front"
+            ? "Please face the camera and re-shoot."
+            : orient.expected === "side"
+              ? "Please turn 90° and re-shoot."
+              : "Please re-shoot with the full body in view."
+            }`,
           type: "warn",
         });
         const cur = type === "front" ? front : side;
@@ -587,7 +618,7 @@ export default function SizeTapeCalculator({
 
       // §1.6 acceptance check
       const accept = checkPhotoAcceptance(rawKps, imgEl.naturalWidth, imgEl.naturalHeight);
-      if (!accept.code) {/* ok */}
+      if (!accept.code) {/* ok */ }
       else {
         setDetectBanner({ text: accept.reason ?? "Photo unsuitable", type: "warn" });
         setWarnings([accept.instruction ?? ""].filter(Boolean));
@@ -612,7 +643,7 @@ export default function SizeTapeCalculator({
       try {
         const id = ctx.getImageData(0, 0, canvas.width, canvas.height);
         iq = imageQuality(id);
-      } catch {/* ignore (CORS, etc.) */}
+      } catch {/* ignore (CORS, etc.) */ }
       const iqWarnings = iq?.warnings ?? [];
 
       const nh = imgEl.naturalHeight, nw = imgEl.naturalWidth;
@@ -649,7 +680,7 @@ export default function SizeTapeCalculator({
             const y1 = (wY + 30) / nh;
             silhouette = silhouetteWidthAveraged(mask, y0 + (y1 - y0) / 2, (y1 - y0) / 2);
           }
-        } catch {/* ignore */}
+        } catch {/* ignore */ }
       }
 
       const leftFrac = silhouette
@@ -997,9 +1028,7 @@ export default function SizeTapeCalculator({
     }
     setMeasurements(m);
     setStep3Locked(false);
-    setTimeout(() => {
-      document.getElementById("st-step3")?.scrollIntoView({ behavior: "smooth" });
-    }, 50);
+    setCurrentStep(3);
   }
 
   /* Recompute recommendations whenever measurements / fit / region / brand change. */
@@ -1133,785 +1162,781 @@ export default function SizeTapeCalculator({
   ───────────────────────────────────────────── */
   return (
     <div className={rootClassName} style={style}>
-      <div className="st-tape" />
-      <div className="st-wrap">
-
-        {/* ── Header ── */}
-        <header className="st-header">
-          <p className="st-eyebrow">Smart size finder</p>
-          <h1 className="st-h1">Find your best fit from home.</h1>
-          <p className="st-header-copy">
-            Enter your basic details and add two clear photos to get an estimated waist measurement and recommended clothing size.
-          </p>
-
-          <div className="st-hero-actions">
-            <button
-              type="button"
-              className="st-hero-btn"
-              onClick={() => document.getElementById("st-step1")?.scrollIntoView({ behavior: "smooth" })}
-            >
-              Start size check <span aria-hidden="true">→</span>
-            </button>
-            <span className="st-time-note">Takes about 2 minutes</span>
-          </div>
-
-          <div className="st-trust-row">
-            <span className="st-pill">
-              <span className="st-pill-icon" aria-hidden="true">✓</span>
-              Your photos stay private on this device
-            </span>
-            <span className="st-pill status" aria-live="polite">
-              <span className={`st-dot ${poseWorker.ready ? "ready" : poseWorker.status.includes("Preparing") ? "busy" : ""}`} />
-              {poseWorker.status}
-            </span>
-            <span className="st-pill status" aria-live="polite">
-              <span className={`st-dot ${seg.ready ? "ready" : seg.status.includes("Preparing") ? "busy" : ""}`} />
-              {seg.status}
-            </span>
-          </div>
-
-          <div className="st-quick-flow" aria-label="Three steps to check your size">
-            <div className="st-flow-item">
-              <span className="st-flow-num">1</span>
-              <div><strong>Enter your details</strong><small>Height and weight</small></div>
-            </div>
-            <div className="st-flow-item">
-              <span className="st-flow-num">2</span>
-              <div><strong>Add your photos</strong><small>Front and side views</small></div>
-            </div>
-            <div className="st-flow-item">
-              <span className="st-flow-num">3</span>
-              <div><strong>See your size</strong><small>Waist and fit estimate</small></div>
-            </div>
-          </div>
-        </header>
-
-        {/* ── Step 1 ── */}
-        <div id="st-step1" className="st-step">
-          <div className="st-step-head">
-            <div className="st-num">1</div>
-            <h2>Tell us a little about you</h2>
-            <span className="st-hint">All fields are required</span>
-          </div>
-          <label className="st-label">Gender</label>
-          <div className="st-gtoggle">
-            {(["female", "male"] as Gender[]).map(g => (
-              <button key={g} className={`st-gbtn ${gender === g ? "active" : ""}`} onClick={() => setGender(g)}>
-                {g === "female" ? "Female" : "Male"}
-              </button>
-            ))}
-          </div>
-          <div className="st-row">
-            <div>
-              <label className="st-label">Height (cm)</label>
-              <input className="st-input" type="number" placeholder="e.g. 165" min={120} max={220} value={heightVal} onChange={e => setHeightVal(e.target.value)} />
-            </div>
-            <div>
-              <label className="st-label">Weight (kg)</label>
-              <input className="st-input" type="number" placeholder="e.g. 60" min={30} max={180} value={weightVal} onChange={e => setWeightVal(e.target.value)} />
-            </div>
-          </div>
-
-          {/* Photo scale method */}
-          <label className="st-label" style={{ marginTop: 16 }}>How should we scale your photo?</label>
-          <div className="st-gtoggle">
-            <button
-              type="button"
-              className={`st-gbtn ${calibrationMethod === "height" ? "active" : ""}`}
-              onClick={() => setCalibrationMethod("height")}
-            >
-              Use my height · Easiest
-            </button>
-            <button
-              type="button"
-              className={`st-gbtn ${calibrationMethod === "card" ? "active" : ""}`}
-              onClick={() => setCalibrationMethod("card")}
-            >
-              Use a standard card
-            </button>
-          </div>
-          <p style={{ fontSize: 12, color: "#8a8f9c", margin: "8px 0 0", lineHeight: 1.5 }}>
-            {calibrationMethod === "card"
-              ? "Hold a standard bank card flat and clearly visible in your front photo. The card details do not need to be readable."
-              : "Recommended: make sure your full body is visible from head to toe."}
-          </p>
-
-          {/* NEW: Fit, region, brand, garment */}
-          <div className="st-row-3" style={{ marginTop: 16 }}>
-            <div>
-              <label className="st-label">Fit preference</label>
-              <select className="st-select" value={fit} onChange={e => setFit(e.target.value as Fit)}>
-                <option value="slim">Slim</option>
-                <option value="regular">Regular</option>
-                <option value="relaxed">Relaxed</option>
-              </select>
-            </div>
-            <div>
-              <label className="st-label">Region</label>
-              <select className="st-select" value={region} onChange={e => setRegion(e.target.value as Region)}>
-                <option value="US">US</option>
-                <option value="UK">UK</option>
-                <option value="EU">EU</option>
-                <option value="IN">India</option>
-                <option value="JP">Japan</option>
-                <option value="CN">China</option>
-                <option value="AU">Australia</option>
-              </select>
-            </div>
-            <div>
-              <label className="st-label">Brand (optional)</label>
-              <input className="st-input" type="text" placeholder="e.g. Zara" value={brand} onChange={e => setBrand(e.target.value)} />
-            </div>
-          </div>
-          <p style={{ fontSize: 12, color: "#8a8f9c", margin: "0 0 8px", lineHeight: 1.5 }}>
-            Region and fit refine the recommended size. Brand is used when your app provides a matching brand chart.
-          </p>
-
-          {/* NEW: manual waist override */}
-          <label className="st-label" style={{ marginTop: 8 }}>Already know your waist? (optional)</label>
-          <input className="st-input" type="number" placeholder="e.g. 78" min={40} max={180}
-            value={manualWaistCm} onChange={e => setManualWaistCm(e.target.value)} />
-          <p style={{ fontSize: 12, color: "#8a8f9c", margin: "6px 0 0", lineHeight: 1.5 }}>
-            If you fill this in, it will be used instead of the photo measurement.
-          </p>
-
-          {/* Pose model picker — wired to the worker; switching reloads the model */}
-          <label className="st-label" style={{ marginTop: 14 }}>Pose detection model</label>
-          <div className="st-gtoggle">
-            <button
-              type="button"
-              className={`st-gbtn ${poseModel === "movenet-thunder" ? "active" : ""}`}
-              onClick={() => setPoseModel("movenet-thunder")}
-            >
-              MoveNet Thunder · accurate
-            </button>
-            <button
-              type="button"
-              className={`st-gbtn ${poseModel === "movenet-lightning" ? "active" : ""}`}
-              onClick={() => setPoseModel("movenet-lightning")}
-            >
-              MoveNet Lightning · faster
-            </button>
-          </div>
-
-          <button type="button" className="st-btn" onClick={calcBaseline} style={{ marginTop: 16 }}>
-            Continue <span aria-hidden="true">→</span>
-          </button>
-          {baselineSize && bmi && (
-            <div className="st-saved" role="status">
-              <span className="st-saved-mark" aria-hidden="true">✓</span>
-              <span>Details saved. Add a front photo to complete your size check.</span>
-            </div>
-          )}
-        </div>
-
-        {/* ── Step 2 ── */}
-        <div className={`st-step ${step2Locked ? "locked" : ""}`}>
-          <div className="st-step-head">
-            <div className="st-num">2</div>
-            <h2>Add front and side photos</h2>
-            <span className="st-hint">Front required · Side recommended</span>
-          </div>
-
-          <div className="st-tabs">
-            <button
-              className={`st-tab ${activePhotoType === "front" ? "active" : ""}`}
-              onClick={() => setActivePhotoType("front")}
-            >
-              <span className="icon" aria-hidden="true">①</span>
-              Front view {front.src && "✓"}
-            </button>
-            <button
-              className={`st-tab ${activePhotoType === "side" ? "active" : ""}`}
-              onClick={() => setActivePhotoType("side")}
-            >
-              <span className="icon" aria-hidden="true">②</span>
-              Side view {side.src && "✓"} <span style={{ fontSize: 10, opacity: 0.72 }}>(recommended)</span>
-            </button>
-          </div>
-
-          <div className="st-photo-guide">
-            <div className="st-guide-head">
+      <div className="st-modal-overlay">
+        <div className="st-modal" role="dialog" aria-modal="true" aria-label="Smart Size Finder">
+          <div className="st-modal-top">
+            <div className="st-modal-title-row">
               <div>
-                <h3>Before taking your photo</h3>
-                <p>Check these three things for the best result.</p>
+                <p className="st-modal-eyebrow">Smart Size Finder</p>
+                <h1 className="st-modal-title">
+                  {currentStep === 1 ? "Tell us about you" : currentStep === 2 ? "Add your photos" : "Your size result"}
+                </h1>
               </div>
-              <span className="st-guide-time">Quick check</span>
+              <button type="button" className="st-modal-close" aria-label="Close">×</button>
             </div>
-            <div className="st-guide-grid">
-              <div className="st-guide-item">
-                <span className="st-guide-check" aria-hidden="true">✓</span>
-                <div><strong>Full body</strong><small>Keep your whole body in frame</small></div>
+
+            <div className="st-progress" aria-label="Progress">
+              <div className={`st-progress-step ${currentStep === 1 ? "active" : "done"}`}>
+                <span className="st-progress-dot">{currentStep > 1 ? "✓" : "1"}</span>
+                <span>Information</span>
               </div>
-              <div className="st-guide-item">
-                <span className="st-guide-check" aria-hidden="true">✓</span>
-                <div><strong>Stand straight</strong><small>Wear fitted clothing, arms relaxed</small></div>
+              <div className={`st-progress-step ${currentStep === 2 ? "active" : currentStep > 2 ? "done" : ""}`}>
+                <span className="st-progress-dot">{currentStep > 2 ? "✓" : "2"}</span>
+                <span>Photos</span>
               </div>
-              <div className="st-guide-item">
-                <span className="st-guide-check" aria-hidden="true">✓</span>
-                <div><strong>Camera at waist level</strong><small>Keep the camera level, not tilted</small></div>
+              <div className={`st-progress-step ${currentStep === 3 ? "active" : ""}`}>
+                <span className="st-progress-dot">3</span>
+                <span>Result</span>
               </div>
             </div>
-            <p className="st-active-tip">
-              <strong>{activePhotoType === "front" ? "Front photo:" : "Side photo:"}</strong>{" "}
-              {activePhotoType === "front"
-                ? "face the camera and stand straight. Breathe out gently before capture."
-                : "turn 90° and stand in a true side profile."}
-              {calibrationMethod === "card" && activePhotoType === "front"
-                ? " Hold a standard bank card flat near your waist."
-                : ""}
-            </p>
           </div>
 
-          {(front.src || side.src) && (
-            <div className="st-photo-preview">
-              {front.src && (
-                <div className={`st-photo-thumb ${activePhotoType === "front" ? "active" : ""}`} onClick={() => setActivePhotoType("front")}>
-                  <img src={front.src} alt="Front" />
-                  <span className="label">Front view · Ready</span>
-                  <button className="remove" onClick={(e) => { e.stopPropagation(); retake("front"); }}>×</button>
+          <div className="st-modal-body">
+            {currentStep === 1 && (
+              <div id="st-step1" className="st-step">
+                <div>
+                  <label className="st-label">Name</label>
+                  <input
+                    className="st-input"
+                    type="text"
+                    placeholder="Enter your name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                  />
                 </div>
-              )}
-              {side.src && (
-                <div className={`st-photo-thumb ${activePhotoType === "side" ? "active" : ""}`} onClick={() => setActivePhotoType("side")}>
-                  <img src={side.src} alt="Side" />
-                  <span className="label">Side view · Ready</span>
-                  <button className="remove" onClick={(e) => { e.stopPropagation(); retake("side"); }}>×</button>
+                <label className="st-label">Gender</label>
+                <div className="st-gtoggle">
+                  {(["female", "male"] as Gender[]).map(g => (
+                    <button key={g} className={`st-gbtn ${gender === g ? "active" : ""}`} onClick={() => setGender(g)}>
+                      {g === "female" ? "Female" : "Male"}
+                    </button>
+                  ))}
                 </div>
-              )}
-            </div>
-          )}
-
-          {!currentPhotoSrc && !camActive && (
-            <>
-              <div className="st-upload-choices" style={{ marginTop: 16 }}>
-                <div
-                  className="st-upload-zone"
-                  role="button"
-                  tabIndex={cameraStarting ? -1 : 0}
-                  aria-disabled={cameraStarting}
-                  onClick={() => {
-                    if (cameraStarting) return;
-                    setCameraError(null);
-                    fileInputRef.current?.click();
-                  }}
-                  onKeyDown={e => {
-                    if (cameraStarting || (e.key !== "Enter" && e.key !== " ")) return;
-                    e.preventDefault();
-                    setCameraError(null);
-                    fileInputRef.current?.click();
-                  }}
-                >
-                  <div className="st-upload-icon" aria-hidden="true">↑</div>
-                  <strong>Upload from gallery</strong>
-                  <span>{activePhotoType === "front" ? "Select a front-view photo" : "Select a side-view photo"}</span>
-                </div>
-                <div
-                  className="st-upload-zone"
-                  role="button"
-                  tabIndex={cameraStarting ? -1 : 0}
-                  aria-disabled={cameraStarting}
-                  onClick={() => { void startCamera(); }}
-                  onKeyDown={e => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      void startCamera();
-                    }
-                  }}
-                >
-                  <div className="st-upload-icon" aria-hidden="true">◎</div>
-                  <strong>{cameraStarting ? "Opening camera…" : "Take a photo"}</strong>
-                  <span>{cameraStarting ? "Allow camera access if your browser asks" : "Use your camera now"}</span>
-                </div>
-              </div>
-              <div className="st-privacy-strip">
-                <span className="st-pill-icon" aria-hidden="true">✓</span>
-                <span><strong>Your photo is private</strong>It is processed on this device and is never uploaded or stored.</span>
-              </div>
-              {cameraStarting && (
-                <div className="st-camera-status" role="status">
-                  <div className="st-spinner" aria-hidden="true" />
-                  <span>Opening your camera. Allow access in your browser if prompted.</span>
-                </div>
-              )}
-              {cameraError && (
-                <div className="st-camera-status error" role="alert">
-                  <span aria-hidden="true">⚠️</span>
-                  <span>{cameraError}</span>
-                </div>
-              )}
-            </>
-          )}
-
-          <input ref={fileInputRef} type="file" accept="image/*" style={{ display: "none" }}
-            onChange={e => {
-              const file = e.target.files?.[0];
-              if (file) {
-                setCameraError(null);
-                loadImageFile(file, activePhotoType);
-              }
-            }} />
-
-          {camActive && (
-            <>
-              <video
-                ref={videoRef}
-                className="st-video"
-                autoPlay
-                muted
-                playsInline
-                onLoadedMetadata={() => {
-                  const video = videoRef.current;
-                  if (video && video.videoWidth > 0 && video.videoHeight > 0) setCameraReady(true);
-                }}
-              />
-              <div className="st-camera-switch" role="group" aria-label="Choose which camera to use">
-                <span className="st-camera-switch-label">Camera</span>
-                <button
-                  type="button"
-                  className={`st-camera-switch-btn ${cameraFacing === "user" ? "active" : ""}`}
-                  aria-pressed={cameraFacing === "user"}
-                  disabled={cameraStarting || cameraFacing === "user"}
-                  onClick={() => { void startCamera("user"); }}
-                >
-                  Front camera
-                </button>
-                <button
-                  type="button"
-                  className={`st-camera-switch-btn ${cameraFacing === "environment" ? "active" : ""}`}
-                  aria-pressed={cameraFacing === "environment"}
-                  disabled={cameraStarting || cameraFacing === "environment"}
-                  onClick={() => { void startCamera("environment"); }}
-                >
-                  Rear camera
-                </button>
-              </div>
-              {!cameraReady && (
-                <div className="st-camera-status" role="status">
-                  <div className="st-spinner" aria-hidden="true" />
-                  <span>Starting camera preview…</span>
-                </div>
-              )}
-              {cameraError && (
-                <div className="st-camera-status error" role="alert">
-                  <span aria-hidden="true">⚠️</span>
-                  <span>{cameraError}</span>
-                </div>
-              )}
-              <div className="st-cam-controls">
-                <button className="st-btn" onClick={capturePhoto} disabled={!cameraReady}>
-                  Take {activePhotoType === "front" ? "front" : "side"} photo
-                </button>
-                <button className="st-btn secondary" onClick={stopCamera}>Cancel</button>
-              </div>
-            </>
-          )}
-
-          {currentPhotoSrc && (
-            <>
-              <div className="st-photo-stage" onWheel={handleWheel}>
-                <div
-                  className="st-zoom-wrap"
-                  style={{ transform: `translate(${panX}px, ${panY}px) scale(${zoom})` }}
-                >
-                  <img ref={imgRef} src={currentPhotoSrc} onLoad={onImgLoad} alt="pose" />
-                  {sw > 0 && sh > 0 && (
-                    <svg
-                      viewBox={`0 0 ${sw} ${sh}`}
-                      style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }}
-                      onPointerMove={(e) => { handlePointerMove(e); handleCardPointerMove(e); }}
-                      onPointerUp={() => { handlePointerUp(); handleCardPointerUp(); }}
-                    >
-                      <line x1={0} y1={ty} x2={sw} y2={ty} stroke="#1B2A4A" strokeWidth={2} strokeDasharray="6,4" />
-                      <circle
-                        className="st-handle" cx={sw / 2} cy={ty} r={10}
-                        fill="#1B2A4A" stroke="#fff" strokeWidth={2}
-                        onPointerDown={e => handlePointerDown(e, "T")}
-                      />
-                      <text x={sw / 2 + 16} y={ty + 4} fontSize={10} fill="#1B2A4A" fontFamily="IBM Plex Mono">head</text>
-
-                      <line x1={0} y1={by} x2={sw} y2={by} stroke="#1B2A4A" strokeWidth={2} strokeDasharray="6,4" />
-                      <circle
-                        className="st-handle" cx={sw / 2} cy={by} r={10}
-                        fill="#1B2A4A" stroke="#fff" strokeWidth={2}
-                        onPointerDown={e => handlePointerDown(e, "B")}
-                      />
-                      <text x={sw / 2 + 16} y={by + 4} fontSize={10} fill="#1B2A4A" fontFamily="IBM Plex Mono">feet</text>
-
-                      <line x1={x1} y1={y} x2={x2} y2={y} stroke={activePhotoType === "front" ? "#B08D57" : "#3B82F6"} strokeWidth={3} />
-                      <circle
-                        className="st-handle" cx={x1} cy={y} r={11}
-                        fill="#C1443C" stroke="#fff" strokeWidth={2}
-                        onPointerDown={e => handlePointerDown(e, "L")}
-                      />
-                      <circle
-                        className="st-handle" cx={x2} cy={y} r={11}
-                        fill="#C1443C" stroke="#fff" strokeWidth={2}
-                        onPointerDown={e => handlePointerDown(e, "R")}
-                      />
-                      <rect
-                        className="st-handle" x={sw / 2 - 36} y={y - 9} width={72} height={18} rx={9}
-                        fill={activePhotoType === "front" ? "#1B2A4A" : "#3B82F6"} opacity={0.85}
-                        onPointerDown={e => handlePointerDown(e, "Y")}
-                      />
-                      <text x={sw / 2} y={y + 4} fontSize={9} fill="#fff" textAnchor="middle" fontFamily="IBM Plex Mono" pointerEvents="none">
-                        {autoDetected ? "waist" : "set waist"}
-                      </text>
-
-                      {calibrationMethod === "card" && activePhotoType === "front" && (
-                        <>
-                          <rect
-                            x={cardRect.x * sw}
-                            y={cardRect.y * sh}
-                            width={cardRect.w * sw}
-                            height={cardRect.h * sh}
-                            fill="rgba(59,130,246,0.2)"
-                            stroke="#3B82F6"
-                            strokeWidth={2}
-                            strokeDasharray="4,2"
-                            className="st-handle"
-                            onPointerDown={e => handleCardPointerDown(e, "move")}
-                          />
-                          <circle
-                            cx={(cardRect.x + cardRect.w) * sw}
-                            cy={(cardRect.y + cardRect.h) * sh}
-                            r={8}
-                            fill="#3B82F6"
-                            stroke="#fff"
-                            strokeWidth={2}
-                            className="st-handle"
-                            onPointerDown={e => handleCardPointerDown(e, "resize")}
-                          />
-                          <text
-                            x={cardRect.x * sw + 4}
-                            y={cardRect.y * sh + 14}
-                            fontSize={10}
-                            fill="#3B82F6"
-                            fontFamily="IBM Plex Mono"
-                          >
-                            standard card
-                          </text>
-                        </>
-                      )}
-                    </svg>
-                  )}
-                </div>
-              </div>
-
-              {currentConfidence > 0 && (
-                <div className="st-confidence">
-                  <span style={{ fontSize: 12, fontWeight: 600 }}>Photo scan quality</span>
-                  <div className="st-confidence-bar" aria-hidden="true">
-                    <div
-                      className="st-confidence-fill"
-                      style={{
-                        width: `${currentConfidence}%`,
-                        background: currentConfidence >= 70
-                          ? "var(--sage)"
-                          : currentConfidence >= 40
-                            ? "var(--brass)"
-                            : "var(--stitch)"
-                      }}
-                    />
+                <div className="st-row">
+                  <div>
+                    <label className="st-label">Height (cm)</label>
+                    <input className="st-input" type="number" placeholder="e.g. 165" min={120} max={220} value={heightVal} onChange={e => setHeightVal(e.target.value)} />
                   </div>
-                  <span style={{ fontSize: 12, fontWeight: 600 }}>
-                    {currentPhotoQuality}
-                  </span>
+                  <div>
+                    <label className="st-label">Weight (kg)</label>
+                    <input className="st-input" type="number" placeholder="e.g. 60" min={30} max={180} value={weightVal} onChange={e => setWeightVal(e.target.value)} />
+                  </div>
                 </div>
-              )}
 
-              <div className="st-zoom-controls">
-                <span className="st-zlabel">Zoom</span>
-                <div className="st-zgroup">
-                  <button className="st-zctrl" onClick={zoomOut} title="Zoom out">−</button>
-                  <button className="st-zctrl" onClick={zoomIn} title="Zoom in">+</button>
+                {/* Photo scale method */}
+                <label className="st-label" style={{ marginTop: 16 }}>How should we scale your photo?</label>
+                <div className="st-gtoggle">
+                  <button
+                    type="button"
+                    className={`st-gbtn ${calibrationMethod === "height" ? "active" : ""}`}
+                    onClick={() => setCalibrationMethod("height")}
+                  >
+                    Use my height · Easiest
+                  </button>
+                  <button
+                    type="button"
+                    className={`st-gbtn ${calibrationMethod === "card" ? "active" : ""}`}
+                    onClick={() => setCalibrationMethod("card")}
+                  >
+                    Use a standard card
+                  </button>
                 </div>
-                <span className="st-zlabel">Move</span>
-                <div className="st-zgroup">
-                  <button className="st-zctrl" onClick={() => setPanX(p => p - PAN_STEP)}>←</button>
-                  <button className="st-zctrl" onClick={() => setPanY(p => p - PAN_STEP)}>↑</button>
-                  <button className="st-zctrl" onClick={() => setPanY(p => p + PAN_STEP)}>↓</button>
-                  <button className="st-zctrl" onClick={() => setPanX(p => p + PAN_STEP)}>→</button>
+                <p style={{ fontSize: 12, color: "#8a8f9c", margin: "8px 0 0", lineHeight: 1.5 }}>
+                  {calibrationMethod === "card"
+                    ? "Hold a standard bank card flat and clearly visible in your front photo. The card details do not need to be readable."
+                    : "Recommended: make sure your full body is visible from head to toe."}
+                </p>
+
+                {/* NEW: Fit, region, brand, garment */}
+                <div className="st-row-3" style={{ marginTop: 16 }}>
+                  <div>
+                    <label className="st-label">Fit preference</label>
+                    <select className="st-select" value={fit} onChange={e => setFit(e.target.value as Fit)}>
+                      <option value="slim">Slim</option>
+                      <option value="regular">Regular</option>
+                      <option value="relaxed">Relaxed</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="st-label">Region</label>
+                    <select className="st-select" value={region} onChange={e => setRegion(e.target.value as Region)}>
+                      <option value="US">US</option>
+                      <option value="UK">UK</option>
+                      <option value="EU">EU</option>
+                      <option value="IN">India</option>
+                      <option value="JP">Japan</option>
+                      <option value="CN">China</option>
+                      <option value="AU">Australia</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="st-label">Brand (optional)</label>
+                    <input className="st-input" type="text" placeholder="e.g. Zara" value={brand} onChange={e => setBrand(e.target.value)} />
+                  </div>
                 </div>
-                <button className="st-zctrl st-reset-z" onClick={resetZoom}>Reset</button>
-              </div>
-            </>
-          )}
+                <p style={{ fontSize: 12, color: "#8a8f9c", margin: "0 0 8px", lineHeight: 1.5 }}>
+                  Region and fit refine the recommended size. Brand is used when your app provides a matching brand chart.
+                </p>
 
-          {detectBanner && (
-            <div className={`st-detect-banner ${detectBanner.type}`}>
-              {detectBanner.type === "loading" && <div className="st-spinner" />}
-              {detectBanner.type === "success" && <span>✅</span>}
-              {detectBanner.type === "warn" && <span>⚠️</span>}
-              <span>{detectBanner.text}</span>
-            </div>
-          )}
+                {/* NEW: manual waist override */}
+                <label className="st-label" style={{ marginTop: 8 }}>Already know your waist? (optional)</label>
+                <input className="st-input" type="number" placeholder="e.g. 78" min={40} max={180}
+                  value={manualWaistCm} onChange={e => setManualWaistCm(e.target.value)} />
+                <p style={{ fontSize: 12, color: "#8a8f9c", margin: "6px 0 0", lineHeight: 1.5 }}>
+                  If you fill this in, it will be used instead of the photo measurement.
+                </p>
 
-          {warnings.length > 0 && (
-            <div style={{ marginTop: 10 }}>
-              {warnings.map((w, i) => (
-                <div key={i} className="st-detect-banner warn" style={{ marginTop: 6 }}>
-                  <span>💡</span>
-                  <span>{w}</span>
+                {/* Pose model picker — wired to the worker; switching reloads the model */}
+                <label className="st-label" style={{ marginTop: 14 }}>Pose detection model</label>
+                <div className="st-gtoggle">
+                  <button
+                    type="button"
+                    className={`st-gbtn ${poseModel === "movenet-thunder" ? "active" : ""}`}
+                    onClick={() => setPoseModel("movenet-thunder")}
+                  >
+                    MoveNet Thunder · accurate
+                  </button>
+                  <button
+                    type="button"
+                    className={`st-gbtn ${poseModel === "movenet-lightning" ? "active" : ""}`}
+                    onClick={() => setPoseModel("movenet-lightning")}
+                  >
+                    MoveNet Lightning · faster
+                  </button>
                 </div>
-              ))}
-            </div>
-          )}
 
-          {showInstructions && (
-            <p className="st-instructions">
-              {activePhotoType === "front"
-                ? <>Position the highlighted guide across both edges of your waist. Drag the round handles if needed.</>
-                : <>Position the highlighted guide across the front and back edges of your waist in the side profile.</>
-              }
-              {calibrationMethod === "card" && activePhotoType === "front" && (
-                <> Fit the blue box precisely over the standard card.</>
-              )}
-            </p>
-          )}
-
-          <div style={{ marginTop: 16, display: "flex", gap: 10, flexWrap: "wrap" }}>
-            {front.src && !side.src && (
-              <button
-                className="st-btn blue"
-                onClick={() => { setActivePhotoType("side"); }}
-              >
-                Add a side photo →
-              </button>
-            )}
-            {showConfirm && front.src && (
-              <button className="st-btn" onClick={confirmWaist}>
-                {side.src ? "See my size →" : "Continue with front photo →"}
-              </button>
-            )}
-            {currentPhotoSrc && (
-              <button className="st-btn ghost" onClick={() => retake(activePhotoType)}>
-                Change {activePhotoType === "front" ? "front" : "side"} photo
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* ── Step 3 ── */}
-        <div id="st-step3" className={`st-step ${step3Locked ? "locked" : ""}`}>
-          <div className="st-step-head">
-            <div className="st-num">3</div>
-            <h2>Final size</h2>
-          </div>
-
-          {/* Garment picker */}
-          {recommendations && (
-            <div className="st-garment-picker" role="tablist" aria-label="Garment class">
-              {(["bottom", "top", "outerwear", "dress"] as GarmentClass[]).map((g) => (
-                <button
-                  key={g}
-                  role="tab"
-                  aria-selected={garment === g}
-                  className={`st-garment-btn ${garment === g ? "active" : ""}`}
-                  onClick={() => setGarment(g)}
-                >
-                  {g[0].toUpperCase() + g.slice(1)}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {finalSize && (
-            <>
-              <div className="st-result-hero">
-                <p className="st-eyebrow">Your recommended size</p>
-                <div className="st-size-big">{finalSize}</div>
-                <div style={{ fontSize: "12.5px", opacity: 0.78, marginBottom: 12 }}>
-                  {measurements
-                    ? (measurements.method === "ellipse"
-                        ? "Based on your front + side photos (ellipse)"
-                        : "Based on your front photo + body shape estimate")
-                    : "Based on your basic details"}
+                <div className="st-step-actions">
+                  <span style={{ fontSize: 11.5, color: "#8a8f9c" }}>Step 1 of 3</span>
+                  <button type="button" className="st-btn" onClick={calcBaseline}>
+                    Continue <span aria-hidden="true">→</span>
+                  </button>
                 </div>
-                {measurements ? (
-                  <span className={`st-accuracy-badge ${getPhotoSetupQuality()}`}>
-                    {getPhotoSetupQuality() === "high" && "Photo setup · Excellent"}
-                    {getPhotoSetupQuality() === "medium" && "Photo setup · Good"}
-                    {getPhotoSetupQuality() === "low" && "Photo setup · Basic"}
-                  </span>
-                ) : (
-                  <span className="st-accuracy-badge medium">Details-based estimate</span>
+                {baselineSize && bmi && (
+                  <div className="st-saved" role="status">
+                    <span className="st-saved-mark" aria-hidden="true">✓</span>
+                    <span>Details saved. Add a front photo to complete your size check.</span>
+                  </div>
                 )}
               </div>
 
-              <div className="st-result-grid" style={{ marginTop: 18 }}>
-                <div className="st-result-card">
-                  <label className="st-label">Details-based estimate</label>
-                  <div className="val">{baselineSize}</div>
+
+            )}
+
+            {currentStep === 2 && (
+              <div className="st-step">
+                <div className="st-step-head">
+                  <div className="st-num">2</div>
+                  <h2>Add front and side photos</h2>
+                  <span className="st-hint">Front required · Side recommended</span>
                 </div>
-                <div className="st-result-card">
-                  <label className="st-label">Photo-based estimate</label>
-                  <div className="val">{finalSize}</div>
+
+                <div className="st-tabs">
+                  <button
+                    className={`st-tab ${activePhotoType === "front" ? "active" : ""}`}
+                    onClick={() => setActivePhotoType("front")}
+                  >
+                    <span className="icon" aria-hidden="true">①</span>
+                    Front view {front.src && "✓"}
+                  </button>
+                  <button
+                    className={`st-tab ${activePhotoType === "side" ? "active" : ""}`}
+                    onClick={() => setActivePhotoType("side")}
+                  >
+                    <span className="icon" aria-hidden="true">②</span>
+                    Side view {side.src && "✓"} <span style={{ fontSize: 10, opacity: 0.72 }}>(recommended)</span>
+                  </button>
                 </div>
-                {measurements && (
+
+                <div className="st-photo-guide">
+                  <div className="st-guide-head">
+                    <div>
+                      <h3>Before taking your photo</h3>
+                      <p>Check these three things for the best result.</p>
+                    </div>
+                    <span className="st-guide-time">Quick check</span>
+                  </div>
+                  <div className="st-guide-grid">
+                    <div className="st-guide-item">
+                      <span className="st-guide-check" aria-hidden="true">✓</span>
+                      <div><strong>Full body</strong><small>Keep your whole body in frame</small></div>
+                    </div>
+                    <div className="st-guide-item">
+                      <span className="st-guide-check" aria-hidden="true">✓</span>
+                      <div><strong>Stand straight</strong><small>Wear fitted clothing, arms relaxed</small></div>
+                    </div>
+                    <div className="st-guide-item">
+                      <span className="st-guide-check" aria-hidden="true">✓</span>
+                      <div><strong>Camera at waist level</strong><small>Keep the camera level, not tilted</small></div>
+                    </div>
+                  </div>
+                  <p className="st-active-tip">
+                    <strong>{activePhotoType === "front" ? "Front photo:" : "Side photo:"}</strong>{" "}
+                    {activePhotoType === "front"
+                      ? "face the camera and stand straight. Breathe out gently before capture."
+                      : "turn 90° and stand in a true side profile."}
+                    {calibrationMethod === "card" && activePhotoType === "front"
+                      ? " Hold a standard bank card flat near your waist."
+                      : ""}
+                  </p>
+                </div>
+
+                {(front.src || side.src) && (
+                  <div className="st-photo-preview">
+                    {front.src && (
+                      <div className={`st-photo-thumb ${activePhotoType === "front" ? "active" : ""}`} onClick={() => setActivePhotoType("front")}>
+                        <img src={front.src} alt="Front" />
+                        <span className="label">Front view · Ready</span>
+                        <button className="remove" onClick={(e) => { e.stopPropagation(); retake("front"); }}>×</button>
+                      </div>
+                    )}
+                    {side.src && (
+                      <div className={`st-photo-thumb ${activePhotoType === "side" ? "active" : ""}`} onClick={() => setActivePhotoType("side")}>
+                        <img src={side.src} alt="Side" />
+                        <span className="label">Side view · Ready</span>
+                        <button className="remove" onClick={(e) => { e.stopPropagation(); retake("side"); }}>×</button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {!currentPhotoSrc && !camActive && (
                   <>
-                    <div className="st-result-card">
-                      <label className="st-label">Estimated waist</label>
-                      <div className="val with-unc">
-                        {measurements.waistCm.toFixed(1)} cm
-                        {measurements.waistUncertaintyCm > 0 && (
-                          <span className="unc"> ±{measurements.waistUncertaintyCm.toFixed(1)}</span>
+                    <div className="st-upload-choices" style={{ marginTop: 16 }}>
+                      <div
+                        className="st-upload-zone"
+                        role="button"
+                        tabIndex={cameraStarting ? -1 : 0}
+                        aria-disabled={cameraStarting}
+                        onClick={() => {
+                          if (cameraStarting) return;
+                          setCameraError(null);
+                          fileInputRef.current?.click();
+                        }}
+                        onKeyDown={e => {
+                          if (cameraStarting || (e.key !== "Enter" && e.key !== " ")) return;
+                          e.preventDefault();
+                          setCameraError(null);
+                          fileInputRef.current?.click();
+                        }}
+                      >
+                        <div className="st-upload-icon" aria-hidden="true">↑</div>
+                        <strong>Upload from gallery</strong>
+                        <span>{activePhotoType === "front" ? "Select a front-view photo" : "Select a side-view photo"}</span>
+                      </div>
+                      <div
+                        className="st-upload-zone"
+                        role="button"
+                        tabIndex={cameraStarting ? -1 : 0}
+                        aria-disabled={cameraStarting}
+                        onClick={() => { void startCamera(); }}
+                        onKeyDown={e => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            void startCamera();
+                          }
+                        }}
+                      >
+                        <div className="st-upload-icon" aria-hidden="true">◎</div>
+                        <strong>{cameraStarting ? "Opening camera…" : "Take a photo"}</strong>
+                        <span>{cameraStarting ? "Allow camera access if your browser asks" : "Use your camera now"}</span>
+                      </div>
+                    </div>
+                    <div className="st-privacy-strip">
+                      <span className="st-pill-icon" aria-hidden="true">✓</span>
+                      <span><strong>Your photo is private</strong>It is processed on this device and is never uploaded or stored.</span>
+                    </div>
+                    {cameraStarting && (
+                      <div className="st-camera-status" role="status">
+                        <div className="st-spinner" aria-hidden="true" />
+                        <span>Opening your camera. Allow access in your browser if prompted.</span>
+                      </div>
+                    )}
+                    {cameraError && (
+                      <div className="st-camera-status error" role="alert">
+                        <span aria-hidden="true">⚠️</span>
+                        <span>{cameraError}</span>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                <input ref={fileInputRef} type="file" accept="image/*" style={{ display: "none" }}
+                  onChange={e => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      setCameraError(null);
+                      loadImageFile(file, activePhotoType);
+                    }
+                  }} />
+
+                {camActive && (
+                  <>
+                    <video
+                      ref={videoRef}
+                      className="st-video"
+                      autoPlay
+                      muted
+                      playsInline
+                      onLoadedMetadata={() => {
+                        const video = videoRef.current;
+                        if (video && video.videoWidth > 0 && video.videoHeight > 0) setCameraReady(true);
+                      }}
+                    />
+                    <div className="st-camera-switch" role="group" aria-label="Choose which camera to use">
+                      <span className="st-camera-switch-label">Camera</span>
+                      <button
+                        type="button"
+                        className={`st-camera-switch-btn ${cameraFacing === "user" ? "active" : ""}`}
+                        aria-pressed={cameraFacing === "user"}
+                        disabled={cameraStarting || cameraFacing === "user"}
+                        onClick={() => { void startCamera("user"); }}
+                      >
+                        Front camera
+                      </button>
+                      <button
+                        type="button"
+                        className={`st-camera-switch-btn ${cameraFacing === "environment" ? "active" : ""}`}
+                        aria-pressed={cameraFacing === "environment"}
+                        disabled={cameraStarting || cameraFacing === "environment"}
+                        onClick={() => { void startCamera("environment"); }}
+                      >
+                        Rear camera
+                      </button>
+                    </div>
+                    {!cameraReady && (
+                      <div className="st-camera-status" role="status">
+                        <div className="st-spinner" aria-hidden="true" />
+                        <span>Starting camera preview…</span>
+                      </div>
+                    )}
+                    {cameraError && (
+                      <div className="st-camera-status error" role="alert">
+                        <span aria-hidden="true">⚠️</span>
+                        <span>{cameraError}</span>
+                      </div>
+                    )}
+                    <div className="st-cam-controls">
+                      <button className="st-btn" onClick={capturePhoto} disabled={!cameraReady}>
+                        Take {activePhotoType === "front" ? "front" : "side"} photo
+                      </button>
+                      <button className="st-btn secondary" onClick={stopCamera}>Cancel</button>
+                    </div>
+                  </>
+                )}
+
+                {currentPhotoSrc && (
+                  <>
+                    <div className="st-photo-stage" onWheel={handleWheel}>
+                      <div
+                        className="st-zoom-wrap"
+                        style={{ transform: `translate(${panX}px, ${panY}px) scale(${zoom})` }}
+                      >
+                        <img ref={imgRef} src={currentPhotoSrc} onLoad={onImgLoad} alt="pose" />
+                        {sw > 0 && sh > 0 && (
+                          <svg
+                            viewBox={`0 0 ${sw} ${sh}`}
+                            style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }}
+                            onPointerMove={(e) => { handlePointerMove(e); handleCardPointerMove(e); }}
+                            onPointerUp={() => { handlePointerUp(); handleCardPointerUp(); }}
+                          >
+                            <line x1={0} y1={ty} x2={sw} y2={ty} stroke="#1B2A4A" strokeWidth={2} strokeDasharray="6,4" />
+                            <circle
+                              className="st-handle" cx={sw / 2} cy={ty} r={10}
+                              fill="#1B2A4A" stroke="#fff" strokeWidth={2}
+                              onPointerDown={e => handlePointerDown(e, "T")}
+                            />
+                            <text x={sw / 2 + 16} y={ty + 4} fontSize={10} fill="#1B2A4A" fontFamily="IBM Plex Mono">head</text>
+
+                            <line x1={0} y1={by} x2={sw} y2={by} stroke="#1B2A4A" strokeWidth={2} strokeDasharray="6,4" />
+                            <circle
+                              className="st-handle" cx={sw / 2} cy={by} r={10}
+                              fill="#1B2A4A" stroke="#fff" strokeWidth={2}
+                              onPointerDown={e => handlePointerDown(e, "B")}
+                            />
+                            <text x={sw / 2 + 16} y={by + 4} fontSize={10} fill="#1B2A4A" fontFamily="IBM Plex Mono">feet</text>
+
+                            <line x1={x1} y1={y} x2={x2} y2={y} stroke={activePhotoType === "front" ? "#B08D57" : "#3B82F6"} strokeWidth={3} />
+                            <circle
+                              className="st-handle" cx={x1} cy={y} r={11}
+                              fill="#C1443C" stroke="#fff" strokeWidth={2}
+                              onPointerDown={e => handlePointerDown(e, "L")}
+                            />
+                            <circle
+                              className="st-handle" cx={x2} cy={y} r={11}
+                              fill="#C1443C" stroke="#fff" strokeWidth={2}
+                              onPointerDown={e => handlePointerDown(e, "R")}
+                            />
+                            <rect
+                              className="st-handle" x={sw / 2 - 36} y={y - 9} width={72} height={18} rx={9}
+                              fill={activePhotoType === "front" ? "#1B2A4A" : "#3B82F6"} opacity={0.85}
+                              onPointerDown={e => handlePointerDown(e, "Y")}
+                            />
+                            <text x={sw / 2} y={y + 4} fontSize={9} fill="#fff" textAnchor="middle" fontFamily="IBM Plex Mono" pointerEvents="none">
+                              {autoDetected ? "waist" : "set waist"}
+                            </text>
+
+                            {calibrationMethod === "card" && activePhotoType === "front" && (
+                              <>
+                                <rect
+                                  x={cardRect.x * sw}
+                                  y={cardRect.y * sh}
+                                  width={cardRect.w * sw}
+                                  height={cardRect.h * sh}
+                                  fill="rgba(59,130,246,0.2)"
+                                  stroke="#3B82F6"
+                                  strokeWidth={2}
+                                  strokeDasharray="4,2"
+                                  className="st-handle"
+                                  onPointerDown={e => handleCardPointerDown(e, "move")}
+                                />
+                                <circle
+                                  cx={(cardRect.x + cardRect.w) * sw}
+                                  cy={(cardRect.y + cardRect.h) * sh}
+                                  r={8}
+                                  fill="#3B82F6"
+                                  stroke="#fff"
+                                  strokeWidth={2}
+                                  className="st-handle"
+                                  onPointerDown={e => handleCardPointerDown(e, "resize")}
+                                />
+                                <text
+                                  x={cardRect.x * sw + 4}
+                                  y={cardRect.y * sh + 14}
+                                  fontSize={10}
+                                  fill="#3B82F6"
+                                  fontFamily="IBM Plex Mono"
+                                >
+                                  standard card
+                                </text>
+                              </>
+                            )}
+                          </svg>
                         )}
                       </div>
                     </div>
-                    <div className="st-result-card">
-                      <label className="st-label">Body type</label>
-                      <div className="val" style={{ fontSize: 16, textTransform: "capitalize" }}>
-                        {measurements.somatotype}
+
+                    {currentConfidence > 0 && (
+                      <div className="st-confidence">
+                        <span style={{ fontSize: 12, fontWeight: 600 }}>Photo scan quality</span>
+                        <div className="st-confidence-bar" aria-hidden="true">
+                          <div
+                            className="st-confidence-fill"
+                            style={{
+                              width: `${currentConfidence}%`,
+                              background: currentConfidence >= 70
+                                ? "var(--sage)"
+                                : currentConfidence >= 40
+                                  ? "var(--brass)"
+                                  : "var(--stitch)"
+                            }}
+                          />
+                        </div>
+                        <span style={{ fontSize: 12, fontWeight: 600 }}>
+                          {currentPhotoQuality}
+                        </span>
                       </div>
+                    )}
+
+                    <div className="st-zoom-controls">
+                      <span className="st-zlabel">Zoom</span>
+                      <div className="st-zgroup">
+                        <button className="st-zctrl" onClick={zoomOut} title="Zoom out">−</button>
+                        <button className="st-zctrl" onClick={zoomIn} title="Zoom in">+</button>
+                      </div>
+                      <span className="st-zlabel">Move</span>
+                      <div className="st-zgroup">
+                        <button className="st-zctrl" onClick={() => setPanX(p => p - PAN_STEP)}>←</button>
+                        <button className="st-zctrl" onClick={() => setPanY(p => p - PAN_STEP)}>↑</button>
+                        <button className="st-zctrl" onClick={() => setPanY(p => p + PAN_STEP)}>↓</button>
+                        <button className="st-zctrl" onClick={() => setPanX(p => p + PAN_STEP)}>→</button>
+                      </div>
+                      <button className="st-zctrl st-reset-z" onClick={resetZoom}>Reset</button>
                     </div>
+                  </>
+                )}
+
+                {detectBanner && (
+                  <div className={`st-detect-banner ${detectBanner.type}`}>
+                    {detectBanner.type === "loading" && <div className="st-spinner" />}
+                    {detectBanner.type === "success" && <span>✅</span>}
+                    {detectBanner.type === "warn" && <span>⚠️</span>}
+                    <span>{detectBanner.text}</span>
+                  </div>
+                )}
+
+                {warnings.length > 0 && (
+                  <div style={{ marginTop: 10 }}>
+                    {warnings.map((w, i) => (
+                      <div key={i} className="st-detect-banner warn" style={{ marginTop: 6 }}>
+                        <span>💡</span>
+                        <span>{w}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {showInstructions && (
+                  <p className="st-instructions">
+                    {activePhotoType === "front"
+                      ? <>Position the highlighted guide across both edges of your waist. Drag the round handles if needed.</>
+                      : <>Position the highlighted guide across the front and back edges of your waist in the side profile.</>
+                    }
+                    {calibrationMethod === "card" && activePhotoType === "front" && (
+                      <> Fit the blue box precisely over the standard card.</>
+                    )}
+                  </p>
+                )}
+
+                <div className="st-step-actions">
+                  <button type="button" className="st-back-btn" onClick={() => setCurrentStep(1)}>← Back</button>
+                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                    {front.src && !side.src && (
+                      <button
+                        className="st-btn blue"
+                        onClick={() => { setActivePhotoType("side"); }}
+                      >
+                        Add a side photo →
+                      </button>
+                    )}
+                    {showConfirm && front.src && (
+                      <button className="st-btn" onClick={confirmWaist}>
+                        {side.src ? "See my size →" : "Continue with front photo →"}
+                      </button>
+                    )}
+                    {currentPhotoSrc && (
+                      <button className="st-btn ghost" onClick={() => retake(activePhotoType)}>
+                        Change {activePhotoType === "front" ? "front" : "side"} photo
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+
+            )}
+
+            {currentStep === 3 && (
+              <div id="st-step3" className="st-step">
+                <div className="st-step-head">
+                  <div className="st-num">3</div>
+                  <h2>Your size & predictions</h2>
+                  <span className="st-hint">Step 3 of 3</span>
+                </div>
+
+                <button type="button" className="st-back-btn" style={{ marginBottom: 8 }} onClick={() => setCurrentStep(2)}>
+                  ← Back to photos
+                </button>
+
+                {/* Garment picker */}
+                {recommendations && (
+                  <div className="st-garment-picker" role="tablist" aria-label="Garment class">
+                    {(["bottom", "top", "outerwear", "dress"] as GarmentClass[]).map((g) => (
+                      <button
+                        key={g}
+                        role="tab"
+                        aria-selected={garment === g}
+                        className={`st-garment-btn ${garment === g ? "active" : ""}`}
+                        onClick={() => setGarment(g)}
+                      >
+                        {g[0].toUpperCase() + g.slice(1)}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {finalSize && (
+                  <>
+                    <div className="st-result-hero">
+                      <p className="st-eyebrow">Your recommended size</p>
+                      <div className="st-size-big">{finalSize}</div>
+                      <div style={{ fontSize: "12.5px", opacity: 0.78, marginBottom: 12 }}>
+                        {measurements
+                          ? (measurements.method === "ellipse"
+                            ? "Based on your front + side photos (ellipse)"
+                            : "Based on your front photo + body shape estimate")
+                          : "Based on your basic details"}
+                      </div>
+                      {measurements ? (
+                        <span className={`st-accuracy-badge ${getPhotoSetupQuality()}`}>
+                          {getPhotoSetupQuality() === "high" && "Photo setup · Excellent"}
+                          {getPhotoSetupQuality() === "medium" && "Photo setup · Good"}
+                          {getPhotoSetupQuality() === "low" && "Photo setup · Basic"}
+                        </span>
+                      ) : (
+                        <span className="st-accuracy-badge medium">Details-based estimate</span>
+                      )}
+                    </div>
+
+                    <div className="st-result-grid" style={{ marginTop: 18 }}>
+                      <div className="st-result-card">
+                        <label className="st-label">Details-based estimate</label>
+                        <div className="val">{baselineSize}</div>
+                      </div>
+                      <div className="st-result-card">
+                        <label className="st-label">Photo-based estimate</label>
+                        <div className="val">{finalSize}</div>
+                      </div>
+                      {measurements && (
+                        <>
+                          <div className="st-result-card">
+                            <label className="st-label">Estimated waist</label>
+                            <div className="val with-unc">
+                              {measurements.waistCm.toFixed(1)} cm
+                              {measurements.waistUncertaintyCm > 0 && (
+                                <span className="unc"> ±{measurements.waistUncertaintyCm.toFixed(1)}</span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="st-result-card">
+                            <label className="st-label">Body type</label>
+                            <div className="val" style={{ fontSize: 16, textTransform: "capitalize" }}>
+                              {measurements.somatotype}
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
+
+                    {/* Confidence sub-scores (NEW §5.1) */}
+                    {measurements && (
+                      <div className="st-sub-scores">
+                        <div className="st-sub-score">
+                          <span className="lbl">Pose</span>
+                          <div className="bar"><div className="fill" style={{ width: `${measurements.confidence.pose}%`, background: "var(--sage)" }} /></div>
+                          <span className="num">{Math.round(measurements.confidence.pose)}</span>
+                        </div>
+                        <div className="st-sub-score">
+                          <span className="lbl">Scale</span>
+                          <div className="bar"><div className="fill" style={{ width: `${measurements.confidence.scale}%`, background: "var(--blue)" }} /></div>
+                          <span className="num">{Math.round(measurements.confidence.scale)}</span>
+                        </div>
+                        <div className="st-sub-score">
+                          <span className="lbl">Image</span>
+                          <div className="bar"><div className="fill" style={{ width: `${measurements.confidence.image}%`, background: "var(--brass)" }} /></div>
+                          <span className="num">{Math.round(measurements.confidence.image)}</span>
+                        </div>
+                        <div className="st-sub-score">
+                          <span className="lbl">Plausibility</span>
+                          <div className="bar"><div className="fill" style={{ width: `${measurements.confidence.plausibility}%`, background: "var(--ink)" }} /></div>
+                          <span className="num">{Math.round(measurements.confidence.plausibility)}</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Detailed measurements (NEW §4.3) */}
+                    {measurements && (
+                      <details className="st-measure-details">
+                        <summary>View full body measurements</summary>
+                        <div className="st-result-grid" style={{ margin: 0, padding: "0 14px 14px" }}>
+                          <div className="st-result-card">
+                            <label className="st-label">Waist</label>
+                            <div className="val with-unc">
+                              {measurements.waistCm.toFixed(1)} cm
+                              <span className="unc"> ±{measurements.waistUncertaintyCm.toFixed(1)}</span>
+                            </div>
+                          </div>
+                          <div className="st-result-card">
+                            <label className="st-label">Chest</label>
+                            <div className="val with-unc">
+                              {measurements.chestCm.toFixed(1)} cm
+                              <span className="unc"> ±{measurements.chestUncertaintyCm.toFixed(1)}</span>
+                            </div>
+                          </div>
+                          <div className="st-result-card">
+                            <label className="st-label">Hip</label>
+                            <div className="val with-unc">
+                              {measurements.hipCm.toFixed(1)} cm
+                              <span className="unc"> ±{measurements.hipUncertaintyCm.toFixed(1)}</span>
+                            </div>
+                          </div>
+                          <div className="st-result-card">
+                            <label className="st-label">Inseam</label>
+                            <div className="val with-unc">
+                              {measurements.inseamCm.toFixed(1)} cm
+                              <span className="unc"> ±{measurements.inseamUncertaintyCm.toFixed(1)}</span>
+                            </div>
+                          </div>
+                          <div className="st-result-card">
+                            <label className="st-label">Shoulder width</label>
+                            <div className="val with-unc">
+                              {measurements.shoulderW.toFixed(1)} cm
+                              <span className="unc"> ±{measurements.shoulderUncertaintyCm.toFixed(1)}</span>
+                            </div>
+                          </div>
+                          <div className="st-result-card">
+                            <label className="st-label">Method</label>
+                            <div className="val" style={{ fontSize: 14 }}>
+                              {measurements.method === "ellipse" ? "Front + side (ellipse)" : "Front only (shape)"}
+                            </div>
+                          </div>
+                        </div>
+                      </details>
+                    )}
+
+                    {flagType && (
+                      <div className={`st-flag ${flagType}`}>{flagText}</div>
+                    )}
+
+                    <div className="st-result-note">
+                      <strong>Fit note:</strong> This is a photo-based estimate. Fit may vary by brand, fabric, and style, so check the brand's size chart before ordering.
+                    </div>
+
+                    {/* History (NEW §7.4) */}
+                    {history.length > 0 && (
+                      <details className="st-history">
+                        <summary>Recent measurements ({history.length})</summary>
+                        {history.map((h) => (
+                          <div key={h.ts} className="item">
+                            <span>{new Date(h.ts).toLocaleString()}</span>
+                            <span>{h.size} · {h.waistCm.toFixed(1)} cm · {h.source}</span>
+                          </div>
+                        ))}
+                      </details>
+                    )}
+
+                    {/* Size chart */}
+                    {heightCm > 0 && chartRows.length > 0 && (
+                      <table className="st-sizechart">
+                        <thead>
+                          <tr>
+                            <th>Size</th>
+                            <th>
+                              {garment === "bottom"
+                                ? "Waist"
+                                : garment === "dress"
+                                  ? "Chest / Bust"
+                                  : "Chest"}{" "}
+                              range for your height (cm)
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {chartRows.map((row) => {
+                            const [lo, hi] = waistRangeForSize(
+                              { rows: chartRows, pick: () => row.size },
+                              row.size, heightCm
+                            );
+                            const label = lo === 0 ? `up to ${hi}` : `${lo}–${hi}`;
+                            return (
+                              <tr key={row.size} className={`st-size-row ${row.size === finalSize ? "hit" : ""}`}>
+                                <td>{row.size}</td><td>{label}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    )}
                   </>
                 )}
               </div>
 
-              {/* Confidence sub-scores (NEW §5.1) */}
-              {measurements && (
-                <div className="st-sub-scores">
-                  <div className="st-sub-score">
-                    <span className="lbl">Pose</span>
-                    <div className="bar"><div className="fill" style={{ width: `${measurements.confidence.pose}%`, background: "var(--sage)" }} /></div>
-                    <span className="num">{Math.round(measurements.confidence.pose)}</span>
-                  </div>
-                  <div className="st-sub-score">
-                    <span className="lbl">Scale</span>
-                    <div className="bar"><div className="fill" style={{ width: `${measurements.confidence.scale}%`, background: "var(--blue)" }} /></div>
-                    <span className="num">{Math.round(measurements.confidence.scale)}</span>
-                  </div>
-                  <div className="st-sub-score">
-                    <span className="lbl">Image</span>
-                    <div className="bar"><div className="fill" style={{ width: `${measurements.confidence.image}%`, background: "var(--brass)" }} /></div>
-                    <span className="num">{Math.round(measurements.confidence.image)}</span>
-                  </div>
-                  <div className="st-sub-score">
-                    <span className="lbl">Plausibility</span>
-                    <div className="bar"><div className="fill" style={{ width: `${measurements.confidence.plausibility}%`, background: "var(--ink)" }} /></div>
-                    <span className="num">{Math.round(measurements.confidence.plausibility)}</span>
-                  </div>
-                </div>
-              )}
-
-              {/* Detailed measurements (NEW §4.3) */}
-              {measurements && (
-                <details className="st-measure-details">
-                  <summary>View full body measurements</summary>
-                  <div className="st-result-grid" style={{ margin: 0, padding: "0 14px 14px" }}>
-                    <div className="st-result-card">
-                      <label className="st-label">Waist</label>
-                      <div className="val with-unc">
-                        {measurements.waistCm.toFixed(1)} cm
-                        <span className="unc"> ±{measurements.waistUncertaintyCm.toFixed(1)}</span>
-                      </div>
-                    </div>
-                    <div className="st-result-card">
-                      <label className="st-label">Chest</label>
-                      <div className="val with-unc">
-                        {measurements.chestCm.toFixed(1)} cm
-                        <span className="unc"> ±{measurements.chestUncertaintyCm.toFixed(1)}</span>
-                      </div>
-                    </div>
-                    <div className="st-result-card">
-                      <label className="st-label">Hip</label>
-                      <div className="val with-unc">
-                        {measurements.hipCm.toFixed(1)} cm
-                        <span className="unc"> ±{measurements.hipUncertaintyCm.toFixed(1)}</span>
-                      </div>
-                    </div>
-                    <div className="st-result-card">
-                      <label className="st-label">Inseam</label>
-                      <div className="val with-unc">
-                        {measurements.inseamCm.toFixed(1)} cm
-                        <span className="unc"> ±{measurements.inseamUncertaintyCm.toFixed(1)}</span>
-                      </div>
-                    </div>
-                    <div className="st-result-card">
-                      <label className="st-label">Shoulder width</label>
-                      <div className="val with-unc">
-                        {measurements.shoulderW.toFixed(1)} cm
-                        <span className="unc"> ±{measurements.shoulderUncertaintyCm.toFixed(1)}</span>
-                      </div>
-                    </div>
-                    <div className="st-result-card">
-                      <label className="st-label">Method</label>
-                      <div className="val" style={{ fontSize: 14 }}>
-                        {measurements.method === "ellipse" ? "Front + side (ellipse)" : "Front only (shape)"}
-                      </div>
-                    </div>
-                  </div>
-                </details>
-              )}
-
-              {flagType && (
-                <div className={`st-flag ${flagType}`}>{flagText}</div>
-              )}
-
-              <div className="st-result-note">
-                <strong>Fit note:</strong> This is a photo-based estimate. Fit may vary by brand, fabric, and style, so check the brand's size chart before ordering.
-              </div>
-
-              {/* History (NEW §7.4) */}
-              {history.length > 0 && (
-                <details className="st-history">
-                  <summary>Recent measurements ({history.length})</summary>
-                  {history.map((h) => (
-                    <div key={h.ts} className="item">
-                      <span>{new Date(h.ts).toLocaleString()}</span>
-                      <span>{h.size} · {h.waistCm.toFixed(1)} cm · {h.source}</span>
-                    </div>
-                  ))}
-                </details>
-              )}
-
-              {/* Size chart */}
-              {heightCm > 0 && chartRows.length > 0 && (
-                <table className="st-sizechart">
-                  <thead>
-                    <tr>
-                      <th>Size</th>
-                      <th>
-                        {garment === "bottom"
-                          ? "Waist"
-                          : garment === "dress"
-                            ? "Chest / Bust"
-                            : "Chest"}{" "}
-                        range for your height (cm)
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {chartRows.map((row) => {
-                      const [lo, hi] = waistRangeForSize(
-                        { rows: chartRows, pick: () => row.size },
-                        row.size, heightCm
-                      );
-                      const label = lo === 0 ? `up to ${hi}` : `${lo}–${hi}`;
-                      return (
-                        <tr key={row.size} className={`st-size-row ${row.size === finalSize ? "hit" : ""}`}>
-                          <td>{row.size}</td><td>{label}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              )}
-            </>
-          )}
-        </div>
-
-        {/* ── Footer ── */}
-        <footer className="st-note">
-          <span className="st-footer-mark" aria-hidden="true">✓</span>
-          <div>
-            <strong>Your photos stay private</strong>
-            <p>Photos are processed entirely on your device. We never upload, share, or store them.</p>
-            <p className="st-disclaimer">Size recommendations are estimates; final fit may vary by brand and style.</p>
+            )}
           </div>
-        </footer>
 
+          <div className="st-modal-footer">
+            🔒 Your photos are processed on this device and are never uploaded or stored.
+          </div>
+        </div>
       </div>
     </div>
   );
