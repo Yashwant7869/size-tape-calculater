@@ -25,6 +25,8 @@ export interface SizeTapeAssetUrls {
 
 /** A completed calculation, emitted whenever the active recommendation changes. */
 export interface SizeTapeResult {
+  name: string | null;
+  gender: "male" | "female" | null;
   measurements: Measurements;
   recommendations: Recommendations;
   selectedGarment: GarmentClass;
@@ -33,6 +35,8 @@ export interface SizeTapeResult {
   region: Region;
   brand: string | null;
 }
+ 
+ 
 
 export type SizeTapeErrorSource = "pose-detector" | "segmentation";
 
