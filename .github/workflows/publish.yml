@@ -20,11 +20,10 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: '22.14.0'
+          node-version: '24'
           registry-url: 'https://registry.npmjs.org'
-          package-manager-cache: false
 
-      - name: Check versions
+      - name: Check Node and npm versions
         run: |
           node --version
           npm --version
