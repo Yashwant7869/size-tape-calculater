@@ -1062,8 +1062,8 @@ export default function SizeTapeCalculator({
   useEffect(() => {
     if (!measurements || !recommendations) return;
     onResultRef.current?.({
-      name: name || null,
-      gender: gender || null,
+         name: name.trim() ? name.trim() : null, 
+    gender: gender ?? null,                   
       measurements,
       recommendations,
       selectedGarment: garment,
@@ -1073,7 +1073,7 @@ export default function SizeTapeCalculator({
       brand: brand || null,
       
     });
-  }, [measurements, recommendations, garment]);
+  }, [name, gender, fit, region, recommendations, brand, measurements, recommendations, garment]);
 
   /* ─── Retake ─── */
   function retake(type: PhotoType) {
