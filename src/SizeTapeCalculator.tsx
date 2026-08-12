@@ -1062,6 +1062,8 @@ export default function SizeTapeCalculator({
   useEffect(() => {
     if (!measurements || !recommendations) return;
     onResultRef.current?.({
+      name: brand || null,
+      gender: gender || null,
       measurements,
       recommendations,
       selectedGarment: garment,
@@ -1069,6 +1071,7 @@ export default function SizeTapeCalculator({
       fit,
       region,
       brand: brand || null,
+      
     });
   }, [measurements, recommendations, garment]);
 
