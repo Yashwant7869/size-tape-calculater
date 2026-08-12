@@ -1,6 +1,5 @@
 name: Publish to npm
 
-# GitHub par Release banate hi auto-publish hoga (ya Actions tab se manually bhi chala sakte ho)
 on:
   release:
     types: [published]
@@ -9,9 +8,11 @@ on:
 jobs:
   publish:
     runs-on: ubuntu-latest
+
     permissions:
       contents: read
-      id-token: write # npm provenance ke liye
+      id-token: write
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -29,8 +30,5 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      # prepublishOnly script build ko automatically chala dega
       - name: Publish to npm
-        run: npm publish --access public --provenance
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public
