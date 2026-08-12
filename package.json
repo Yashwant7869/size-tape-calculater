@@ -1,6 +1,6 @@
 {
   "name": "size-tape-calculator",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Privacy-first React clothing size calculator that estimates waist and apparel size from front and side photos in the browser.",
   "keywords": [
     "react",
@@ -15,7 +15,7 @@
     "movenet",
     "computer-vision"
   ],
-  "license": "MIT",
+  "license": "UNLICENSED",
   "author": "Yashwant Singh Gour",
   "repository": {
     "type": "git",
