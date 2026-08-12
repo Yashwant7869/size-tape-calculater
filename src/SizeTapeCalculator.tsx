@@ -1062,7 +1062,7 @@ export default function SizeTapeCalculator({
   useEffect(() => {
     if (!measurements || !recommendations) return;
     onResultRef.current?.({
-      name: brand || null,
+      name: name || null,
       gender: gender || null,
       measurements,
       recommendations,
