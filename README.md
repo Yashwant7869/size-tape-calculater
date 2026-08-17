@@ -193,6 +193,3 @@ The npm tarball includes only:
 
 This package provides an apparel-sizing estimate. Results can vary with photo quality, pose, clothing, fabric, brand, and size chart. It is not a medical device, biometric-identification system, or professional tailoring tool.
 
-## License
-
-MIT © Yashwant Singh Gour. See [third-party notices](./THIRD_PARTY_NOTICES.md) for bundled dependencies.
